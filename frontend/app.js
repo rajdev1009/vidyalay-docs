@@ -590,7 +590,13 @@ async function openDeveloperModal() {
   modal.classList.remove("hidden");
   modal.classList.add("flex");
 
-  document.getElementById("dev-code-status").textContent = adminCode ? "Admin unlocked ✅ — free preview & download active" : "";
+  const statusEl = document.getElementById("dev-code-status");
+  if (adminCode) {
+    statusEl.textContent = "Unlocked ✅";
+    statusEl.classList.remove("hidden");
+  } else {
+    statusEl.classList.add("hidden");
+  }
 
   try {
     const res = await fetch(`${API_BASE}/api/developer`);
@@ -613,19 +619,39 @@ document.getElementById("developer-close-btn").addEventListener("click", () => {
   document.getElementById("developer-modal").classList.remove("flex");
 });
 
-async function devIdSearch() {
-  const id = document.getElementById("dev-id-input").value.trim();
+async function handleDevSearch() {
+  const input = document.getElementById("dev-search-input");
+  const value = input.value.trim();
   const resultBox = document.getElementById("dev-id-result");
-  if (!id) return;
+  const statusEl = document.getElementById("dev-code-status");
+  if (!value) return;
 
+  // First, silently check if this is the owner's unlock code.
+  try {
+    const verifyRes = await fetch(`${API_BASE}/api/admin/verify?code=${encodeURIComponent(value)}`);
+    const verifyData = await verifyRes.json();
+    if (verifyData.valid) {
+      adminCode = value;
+      sessionStorage.setItem("vidyalay_admin_code", value);
+      input.value = "";
+      resultBox.classList.add("hidden");
+      statusEl.classList.remove("hidden");
+      statusEl.textContent = "Unlocked ✅";
+      showToast("Unlocked");
+      return;
+    }
+  } catch (e) {
+    console.error("verify check failed", e);
+  }
+
+  // Otherwise, treat it as a normal document ID / keyword search.
   resultBox.classList.remove("hidden");
   resultBox.innerHTML = `<p class="text-[#8B93A7]">Searching...</p>`;
-
   try {
-    const res = await fetch(`${API_BASE}/api/search?q=${encodeURIComponent(id)}`);
+    const res = await fetch(`${API_BASE}/api/search?q=${encodeURIComponent(value)}`);
     const data = await res.json();
     if (!data.items || data.items.length === 0) {
-      resultBox.innerHTML = `<p class="text-[#8B93A7]">No document found for that ID.</p>`;
+      resultBox.innerHTML = `<p class="text-[#8B93A7]">No document found.</p>`;
       return;
     }
     const doc = data.items[0];
@@ -636,42 +662,16 @@ async function devIdSearch() {
         <button id="dev-result-preview" class="flex-1 h-9 rounded-md border border-[#0B1E3D] text-[#0B1E3D] text-xs font-semibold hover:bg-[#0B1E3D] hover:text-white">Preview</button>
         <button id="dev-result-download" class="flex-1 h-9 rounded-md bg-[#F2B705] hover:bg-[#e0a900] text-[#0B1E3D] text-xs font-semibold">Download</button>
       </div>
-      ${!adminCode ? `<p class="text-[10px] text-[#8B93A7] mt-2">Unlock below for free, unrestricted access.</p>` : ""}
     `;
     document.getElementById("dev-result-preview").addEventListener("click", () => openPreview(doc.doc_id, doc.title, doc.category));
     document.getElementById("dev-result-download").addEventListener("click", () => attemptDownload(doc.doc_id, doc.title, doc.category));
   } catch (e) {
-    console.error("dev id search failed", e);
+    console.error("dev search failed", e);
     resultBox.innerHTML = `<p class="text-[#8B93A7]">Search failed — try again.</p>`;
   }
 }
-document.getElementById("dev-id-search-btn").addEventListener("click", devIdSearch);
-document.getElementById("dev-id-input").addEventListener("keydown", (e) => {
-  if (e.key === "Enter") devIdSearch();
-});
-
-document.getElementById("dev-code-unlock-btn").addEventListener("click", async () => {
-  const code = document.getElementById("dev-code-input").value.trim();
-  const statusEl = document.getElementById("dev-code-status");
-  if (!code) return;
-
-  statusEl.textContent = "Checking...";
-  try {
-    const res = await fetch(`${API_BASE}/api/admin/verify?code=${encodeURIComponent(code)}`);
-    const data = await res.json();
-    if (data.valid) {
-      adminCode = code;
-      sessionStorage.setItem("vidyalay_admin_code", code);
-      statusEl.textContent = "Admin unlocked ✅ — free preview & download active";
-      showToast("Admin access unlocked");
-      document.getElementById("dev-code-input").value = "";
-    } else {
-      statusEl.textContent = "Invalid code.";
-    }
-  } catch (e) {
-    console.error("admin verify failed", e);
-    statusEl.textContent = "Could not verify — try again.";
-  }
+document.getElementById("dev-search-input").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") handleDevSearch();
 });
 
 // ---------------------------------------------------------------
