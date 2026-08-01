@@ -14,8 +14,10 @@ Commands:
     /done                     - finish an in-progress /add bulk session
     /delete <10-digit-id>     - remove a document
     /list                     - list all documents
+    /categories               - show category numbers (needed for /unlock)
     /stats                    - usage statistics
-    /unlock <email|user_id>   - grant/extend 30-day access after payment
+    /unlock <email|user_id> <category_no>  - grant/extend 30-day access to
+                                              ONE category after payment
     /ban <email>              - block a user
     /unban <email>            - unblock a user
     /broadcast <message>      - message all registered users
@@ -24,10 +26,10 @@ import asyncio
 from datetime import datetime
 from telethon import events, Button
 
-from config import OWNER_CHAT_ID
+from config import OWNER_CHAT_ID, CATEGORIES
 from database import documents_col, users_col, orders_col
 from telegram_client import upload_pdf
-from utils import generate_unique_doc_id, unlock_user, ban_user, unban_user
+from utils import generate_unique_doc_id, unlock_user_category, ban_user, unban_user
 from bot_client import bot, start_bot_client
 
 # In-memory state machine for the /add conversation flow, keyed by chat id.
@@ -217,7 +219,7 @@ async def stats_command(event):
     total_downloads = agg[0]["total"] if agg else 0
 
     total_users = await users_col.count_documents({})
-    active_subs = await users_col.count_documents({"subscription_expiry": {"$gt": datetime.utcnow()}})
+    active_subs = await users_col.count_documents({"category_access": {"$exists": True, "$ne": {}}})
     pending_orders = await orders_col.count_documents({"status": "pending_verification"})
 
     await event.respond(
@@ -231,15 +233,38 @@ async def stats_command(event):
 
 
 # ---------------------------------------------------------------------------
-# /unlock <email or user-id>
+# /categories — quick reference so the owner knows the number to use in /unlock
 # ---------------------------------------------------------------------------
 
-@bot.on(events.NewMessage(pattern=r"/unlock (\S+)"))
+@bot.on(events.NewMessage(pattern="/categories"))
+@_owner_only
+async def categories_command(event):
+    options = "\n".join(f"{i+1}. {c}" for i, c in enumerate(CATEGORIES))
+    await event.respond(f"📂 **Categories:**\n\n{options}\n\nUse the number with /unlock, e.g. `/unlock user@email.com 2`")
+
+
+# ---------------------------------------------------------------------------
+# /unlock <email or user-id> <category number>
+# Grants access to ONE category only — the user needs a separate /unlock
+# for each category they pay for.
+# ---------------------------------------------------------------------------
+
+@bot.on(events.NewMessage(pattern=r"/unlock (\S+) (\d+)"))
 @_owner_only
 async def unlock_command(event):
     identifier = event.pattern_match.group(1)
-    expiry = await unlock_user(identifier, days=30)
-    await event.respond(f"🔓 Unlocked access for `{identifier}` until {expiry.strftime('%Y-%m-%d')}")
+    cat_num = int(event.pattern_match.group(2))
+    try:
+        category = CATEGORIES[cat_num - 1]
+    except IndexError:
+        await event.respond("❌ Invalid category number. Send /categories to see the valid numbers.")
+        return
+
+    expiry = await unlock_user_category(identifier, category, days=30)
+    await event.respond(
+        f"🔓 Unlocked **{category}** access for `{identifier}` until {expiry.strftime('%Y-%m-%d')}\n\n"
+        f"(This does NOT unlock other categories — repeat /unlock with a different number for those.)"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -292,13 +317,22 @@ async def broadcast_command(event):
 async def notify_owner_of_order(order_doc: dict):
     if not bot.is_connected():
         await bot.connect()
+
+    category = order_doc.get("category")
+    if category and category in CATEGORIES:
+        cat_num = CATEGORIES.index(category) + 1
+        unlock_hint = f"`/unlock {order_doc.get('email', '')} {cat_num}`"
+    else:
+        unlock_hint = "`/unlock <email> <category_number>` (send /categories to see numbers)"
+
     text = (
         f"💰 **New payment intent**\n\n"
         f"Email: {order_doc.get('email', 'N/A')}\n"
         f"Doc ID: {order_doc.get('doc_id', 'N/A')}\n"
+        f"Category: {category or 'N/A'}\n"
         f"Amount: ₹{order_doc.get('amount_inr')}\n\n"
         f"Verify the UPI payment, then run:\n"
-        f"`/unlock {order_doc.get('email', '')}`"
+        f"{unlock_hint}"
     )
     await bot.send_message(OWNER_CHAT_ID, text)
 
