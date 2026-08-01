@@ -19,7 +19,7 @@ from config import BRANDING, CATEGORIES, BASE_URL
 from database import documents_col, users_col, orders_col, ensure_indexes
 from models import DocumentCreate, OrderCreate, UnlockRequest
 from telegram_client import start_client, stop_client, stream_pdf_bytes
-from utils import generate_unique_doc_id, is_user_active_subscriber, unlock_user
+from utils import generate_unique_doc_id, is_user_active_for_category, unlock_user_category
 
 app = FastAPI(title="Vidyalay Coaching Centre Study Portal API")
 
@@ -126,10 +126,22 @@ async def search_documents(
 # ---------------------------------------------------------------------------
 
 @app.get("/api/preview/{doc_id}")
-async def preview_document(doc_id: str):
+async def preview_document(doc_id: str, identifier: str = Query(..., description="email or telegram_user_id")):
     doc = await documents_col.find_one({"doc_id": doc_id})
     if not doc:
         raise HTTPException(404, "Document not found")
+
+    active = await is_user_active_for_category(identifier, doc["category"])
+    if not active:
+        raise HTTPException(
+            402,
+            detail={
+                "message": f"Payment required. Subscribe for '{doc['category']}' access and ask the owner to /unlock your account.",
+                "category": doc["category"],
+                "upi_id": BRANDING["upi_id"],
+                "monthly_fee_inr": BRANDING["monthly_fee_inr"],
+            },
+        )
 
     try:
         file_bytes, filename = await stream_pdf_bytes(doc["telegram_message_id"])
@@ -153,12 +165,13 @@ async def download_document(doc_id: str, identifier: str = Query(..., descriptio
     if not doc:
         raise HTTPException(404, "Document not found")
 
-    active = await is_user_active_subscriber(identifier)
+    active = await is_user_active_for_category(identifier, doc["category"])
     if not active:
         raise HTTPException(
             402,
             detail={
-                "message": "Payment required. Subscribe via UPI and ask the owner to /unlock your account.",
+                "message": f"Payment required. Subscribe for '{doc['category']}' access and ask the owner to /unlock your account.",
+                "category": doc["category"],
                 "upi_id": BRANDING["upi_id"],
                 "monthly_fee_inr": BRANDING["monthly_fee_inr"],
             },
@@ -208,9 +221,9 @@ async def create_order(order: OrderCreate):
 
 
 @app.get("/api/subscription-status")
-async def subscription_status(identifier: str):
-    active = await is_user_active_subscriber(identifier)
-    return {"identifier": identifier, "active": active}
+async def subscription_status(identifier: str, category: str):
+    active = await is_user_active_for_category(identifier, category)
+    return {"identifier": identifier, "category": category, "active": active}
 
 
 # ---------------------------------------------------------------------------
@@ -239,8 +252,8 @@ async def internal_delete_document(doc_id: str):
 
 @app.post("/internal/unlock")
 async def internal_unlock(req: UnlockRequest):
-    expiry = await unlock_user(req.identifier, req.days)
-    return {"identifier": req.identifier, "subscription_expiry": expiry.isoformat()}
+    expiry = await unlock_user_category(req.identifier, req.category, req.days)
+    return {"identifier": req.identifier, "category": req.category, "subscription_expiry": expiry.isoformat()}
 
 
 # Serve the static frontend (index.html, assets) from the same service.
