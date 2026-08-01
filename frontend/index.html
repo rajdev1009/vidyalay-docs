@@ -28,7 +28,27 @@
       <a href="#recent" class="hover:text-[#F2B705] transition-colors">Recently Added</a>
       <a href="#contact" class="hover:text-[#F2B705] transition-colors">Contact</a>
     </nav>
-    <button id="nav-subscribe-btn" class="bg-[#F2B705] hover:bg-[#e0a900] text-[#0B1E3D] text-sm font-semibold px-4 py-2 rounded-md transition-colors">Subscribe</button>
+    <div class="flex items-center gap-2 md:gap-3">
+      <button id="nav-subscribe-btn" class="bg-[#F2B705] hover:bg-[#e0a900] text-[#0B1E3D] text-sm font-semibold px-4 py-2 rounded-md transition-colors">Subscribe</button>
+
+      <!-- Three-dot menu -->
+      <div class="relative">
+        <button id="more-menu-btn" aria-label="More options" class="w-9 h-9 rounded-md flex items-center justify-center text-white hover:bg-white/10 transition-colors">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>
+        </button>
+        <div id="more-menu-dropdown" class="hidden absolute right-0 mt-2 w-44 bg-white rounded-lg shadow-2xl border border-[#EAE7DD] overflow-hidden z-50">
+          <button id="menu-admin-btn" class="w-full text-left px-4 py-3 text-sm text-[#0B1E3D] hover:bg-[#F6F5F1] font-medium flex items-center gap-2">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06A1.65 1.65 0 004.6 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06A1.65 1.65 0 009 4.6a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+            Admin
+          </button>
+          <div class="border-t border-[#EAE7DD]"></div>
+          <button id="menu-developer-btn" class="w-full text-left px-4 py-3 text-sm text-[#0B1E3D] hover:bg-[#F6F5F1] font-medium flex items-center gap-2">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+            Developer
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </header>
 
@@ -182,9 +202,69 @@
   </div>
 </div>
 
+<!-- ============================= ADMIN PANEL MODAL ============================= -->
+<div id="admin-modal" class="fixed inset-0 z-50 hidden bg-black/60 backdrop-blur-sm items-center justify-center p-4">
+  <div class="bg-white rounded-xl w-full max-w-md max-h-[85vh] overflow-y-auto shadow-2xl">
+    <div class="flex items-center justify-between px-5 py-4 border-b border-[#EAE7DD] sticky top-0 bg-white z-10">
+      <h3 class="font-display font-semibold text-lg">Settings</h3>
+      <button id="admin-close-btn" class="w-8 h-8 rounded-md hover:bg-[#F6F5F1] flex items-center justify-center text-xl">&times;</button>
+    </div>
+    <div class="p-5">
+      <h4 class="text-xs font-semibold uppercase tracking-wide text-[#8B93A7] mb-3">Theme Colour</h4>
+      <div id="theme-swatches" class="grid grid-cols-6 gap-2.5 mb-6"></div>
+
+      <h4 class="text-xs font-semibold uppercase tracking-wide text-[#8B93A7] mb-3">Edit Profile</h4>
+      <div class="space-y-3">
+        <input id="profile-name" type="text" placeholder="Your name" class="w-full h-11 rounded-md border border-[#DCD8CB] px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#F2B705]" />
+        <input id="profile-email" type="email" placeholder="Your email" class="w-full h-11 rounded-md border border-[#DCD8CB] px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#F2B705]" />
+        <input id="profile-number" type="tel" placeholder="Your phone number" class="w-full h-11 rounded-md border border-[#DCD8CB] px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#F2B705]" />
+        <select id="profile-category" class="w-full h-11 rounded-md border border-[#DCD8CB] px-3 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#F2B705]">
+          <option value="">Preferred category (optional)</option>
+        </select>
+        <button id="profile-save-btn" class="w-full h-11 rounded-md bg-[#0B1E3D] hover:bg-[#152a4d] text-white font-semibold text-sm">Save Profile</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================= DEVELOPER PANEL MODAL ============================= -->
+<div id="developer-modal" class="fixed inset-0 z-50 hidden bg-black/60 backdrop-blur-sm items-center justify-center p-4">
+  <div class="bg-white rounded-xl w-full max-w-md max-h-[85vh] overflow-y-auto shadow-2xl">
+    <div class="flex items-center justify-between px-5 py-4 border-b border-[#EAE7DD] sticky top-0 bg-white z-10">
+      <h3 class="font-display font-semibold text-lg">Developer</h3>
+      <button id="developer-close-btn" class="w-8 h-8 rounded-md hover:bg-[#F6F5F1] flex items-center justify-center text-xl">&times;</button>
+    </div>
+    <div class="p-5">
+      <p id="developer-about-text" class="text-sm text-[#5A6478] leading-relaxed mb-5">Loading...</p>
+
+      <div class="bg-[#F6F5F1] rounded-lg p-4 mb-5">
+        <p class="text-[10px] uppercase tracking-wide text-[#8B93A7] font-semibold mb-1">Developed by</p>
+        <p id="developer-name" class="font-display font-semibold text-base mb-0.5">—</p>
+        <p id="developer-role" class="text-xs text-[#5A6478] mb-2">—</p>
+        <div id="developer-skills" class="flex flex-wrap gap-1.5 mb-3"></div>
+        <a id="developer-telegram" href="#" target="_blank" class="text-xs font-mono text-[#0B1E3D] hover:text-[#F2B705] underline underline-offset-2">—</a>
+      </div>
+
+      <div class="border-t border-[#EAE7DD] pt-4">
+        <h4 class="text-xs font-semibold uppercase tracking-wide text-[#8B93A7] mb-2">Find by ID</h4>
+        <div class="flex gap-2 mb-3">
+          <input id="dev-id-input" type="text" placeholder="Enter #ID number" class="flex-1 h-10 rounded-md border border-[#DCD8CB] px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#F2B705]" />
+          <button id="dev-id-search-btn" class="h-10 px-4 rounded-md bg-[#0B1E3D] hover:bg-[#152a4d] text-white text-sm font-semibold">Find</button>
+        </div>
+        <div id="dev-id-result" class="hidden bg-[#F6F5F1] rounded-lg p-4 mb-2 text-sm"></div>
+
+        <input id="dev-code-input" type="password" placeholder="Access code (owner only)" class="w-full h-10 rounded-md border border-[#DCD8CB] px-3 text-sm mt-3 focus:outline-none focus:ring-2 focus:ring-[#F2B705]" />
+        <button id="dev-code-unlock-btn" class="w-full h-10 mt-2 rounded-md bg-[#F2B705] hover:bg-[#e0a900] text-[#0B1E3D] text-sm font-semibold">Unlock</button>
+        <p id="dev-code-status" class="text-xs text-center mt-2 text-[#8B93A7]"></p>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- ============================= TOAST ============================= -->
 <div id="toast" class="fixed bottom-5 left-1/2 -translate-x-1/2 z-[60] hidden bg-[#0B1E3D] text-white text-sm font-medium px-5 py-3 rounded-lg shadow-xl"></div>
 
 <script src="app.js"></script>
 </body>
-</html>
+      </html>
+      
