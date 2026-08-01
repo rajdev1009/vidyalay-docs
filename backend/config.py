@@ -24,6 +24,28 @@ APP_SECRET_KEY = os.getenv("APP_SECRET_KEY", "change-this-in-production")
 BASE_URL = os.getenv("BASE_URL", "http://localhost:8000")
 ENV = os.getenv("ENV", "development")
 
+# ---------- Admin backdoor (owner-only) ----------
+# Used by the "Developer" panel on the site to unlock free preview/download
+# access to ANY document, bypassing the subscription check. This value is
+# NEVER sent to the browser — the frontend only sends whatever the visitor
+# typed, and the comparison happens here, server-side, only.
+# Override in your .env / Render environment variables in production.
+ADMIN_ACCESS_CODE = os.getenv("ADMIN_ACCESS_CODE", "raj7578848529")
+
+# ---------- Developer info (shown in the "Developer" panel on the site) ----------
+DEVELOPER_INFO = {
+    "name": "Raj Dev",
+    "role": "Full Stack Developer",
+    "telegram": "@raj_dev_01",
+    "skills": ["Python", "JavaScript", "HTML", "CSS", "Linux", "C++"],
+    "about": (
+        "This platform was built to give students a fast, reliable way to "
+        "find and download verified exam study material - organized by "
+        "category, searchable by keyword or ID, previewable before purchase, "
+        "and backed by a Telegram-based storage and admin system."
+    ),
+}
+
 # ---------- Branding (editable by the owner) ----------
 BRANDING = {
     "coaching_name": os.getenv("COACHING_NAME", "Vidyalay Coaching Centre"),
