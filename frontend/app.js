@@ -13,6 +13,11 @@ let currentPreviewTitle = null;
 let currentPreviewCategory = null;
 let ownerWhatsappNumber = "917099451692"; // overwritten by loadBranding()
 
+// Admin unlock code is kept ONLY in this tab's memory for this session —
+// never written to localStorage, never hard-coded anywhere in this file.
+// It is sent to the backend, which is the only place it's ever compared.
+let adminCode = sessionStorage.getItem("vidyalay_admin_code") || null;
+
 // ---------------------------------------------------------------
 // Toast notifications
 // ---------------------------------------------------------------
@@ -68,8 +73,20 @@ async function loadCategories() {
     const data = await res.json();
     const grid = document.getElementById("category-grid");
     const footerList = document.getElementById("footer-categories");
+    const profileSelect = document.getElementById("profile-category");
     grid.innerHTML = "";
     footerList.innerHTML = "";
+    if (profileSelect) {
+      profileSelect.innerHTML = `<option value="">Preferred category (optional)</option>`;
+      data.categories.forEach(cat => {
+        const opt = document.createElement("option");
+        opt.value = cat;
+        opt.textContent = cat;
+        profileSelect.appendChild(opt);
+      });
+      const savedProfile = JSON.parse(localStorage.getItem("vidyalay_profile") || "{}");
+      if (savedProfile.category) profileSelect.value = savedProfile.category;
+    }
     data.categories.forEach(cat => {
       const card = document.createElement("button");
       card.className = "category-card p-5 text-left";
@@ -212,6 +229,11 @@ async function loadRecent() {
 // PDF Preview (PDF.js)
 // ---------------------------------------------------------------
 async function openPreview(docId, title, category) {
+  if (adminCode) {
+    // Owner is unlocked — skip identifier prompt and subscription check entirely.
+    return renderPreview(docId, title);
+  }
+
   if (!currentUserIdentifier) {
     currentUserIdentifier = prompt("Enter your email to check subscription status:") || "";
     if (!currentUserIdentifier) return;
@@ -232,6 +254,10 @@ async function openPreview(docId, title, category) {
     return;
   }
 
+  await renderPreview(docId, title, category);
+}
+
+async function renderPreview(docId, title, category) {
   currentPreviewDocId = docId;
   currentPreviewTitle = title || "";
   currentPreviewCategory = category || "";
@@ -247,7 +273,8 @@ async function openPreview(docId, title, category) {
   loading.textContent = "Loading preview...";
 
   try {
-    const url = `${API_BASE}/api/preview/${docId}?identifier=${encodeURIComponent(currentUserIdentifier)}`;
+    let url = `${API_BASE}/api/preview/${docId}?identifier=${encodeURIComponent(currentUserIdentifier || "admin")}`;
+    if (adminCode) url += `&admin_code=${encodeURIComponent(adminCode)}`;
     const loadingTask = pdfjsLib.getDocument(url);
     const pdf = await loadingTask.promise;
     const page = await pdf.getPage(1);
@@ -279,6 +306,20 @@ document.getElementById("preview-download-btn").addEventListener("click", () => 
 // Download flow (payment-gated)
 // ---------------------------------------------------------------
 async function attemptDownload(docId, title, category) {
+  if (adminCode) {
+    // Owner is unlocked — free download, no identifier or subscription needed.
+    showToast("Preparing your download...");
+    const dlUrl = `${API_BASE}/api/download/${docId}?identifier=${encodeURIComponent(currentUserIdentifier || "admin")}&admin_code=${encodeURIComponent(adminCode)}`;
+    const link = document.createElement("a");
+    link.href = dlUrl;
+    link.download = "";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    showToast("Download started ✅");
+    return;
+  }
+
   if (!currentUserIdentifier) {
     currentUserIdentifier = prompt("Enter your email to check subscription status:") || "";
     if (!currentUserIdentifier) return;
@@ -413,10 +454,36 @@ document.getElementById("clear-search").addEventListener("click", () => {
 });
 
 // ---------------------------------------------------------------
-// Init
+// Three-dot menu (Admin / Developer)
 // ---------------------------------------------------------------
-loadBranding();
-loadCategories();
-loadStats();
-loadRecent();
-  
+const moreMenuBtn = document.getElementById("more-menu-btn");
+const moreMenuDropdown = document.getElementById("more-menu-dropdown");
+
+moreMenuBtn.addEventListener("click", (e) => {
+  e.stopPropagation();
+  moreMenuDropdown.classList.toggle("hidden");
+});
+document.addEventListener("click", (e) => {
+  if (!moreMenuDropdown.classList.contains("hidden") && !moreMenuDropdown.contains(e.target) && e.target !== moreMenuBtn) {
+    moreMenuDropdown.classList.add("hidden");
+  }
+});
+
+document.getElementById("menu-admin-btn").addEventListener("click", () => {
+  moreMenuDropdown.classList.add("hidden");
+  openAdminModal();
+});
+document.getElementById("menu-developer-btn").addEventListener("click", () => {
+  moreMenuDropdown.classList.add("hidden");
+  openDeveloperModal();
+});
+
+// ---------------------------------------------------------------
+// Admin panel — theme colour + edit profile
+// ---------------------------------------------------------------
+const THEME_COLORS = [
+  { name: "Yellow (default)", hex: "#F2B705" },
+  { name: "Amber", hex: "#F59E0B" },
+  { name: "Orange", hex: "#F97316" },
+  { name: "Red", hex: "#EF4444" },
+  { name: "
