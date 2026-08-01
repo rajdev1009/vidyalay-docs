@@ -22,22 +22,13 @@ Commands:
 """
 import asyncio
 from datetime import datetime
-from telethon import TelegramClient, events, Button
-from telethon.sessions import StringSession
+from telethon import events, Button
 
-from config import (
-    TELEGRAM_API_ID,
-    TELEGRAM_API_HASH,
-    TELEGRAM_STRING_SESSION,
-    BOT_TOKEN,
-    OWNER_CHAT_ID,
-)
+from config import OWNER_CHAT_ID
 from database import documents_col, users_col, orders_col
 from telegram_client import upload_pdf
 from utils import generate_unique_doc_id, unlock_user, ban_user, unban_user
-
-# Bot client (separate login from the string-session user client that streams files)
-bot = TelegramClient("bot_session", TELEGRAM_API_ID, TELEGRAM_API_HASH)
+from bot_client import bot, start_bot_client
 
 # In-memory state machine for the /add conversation flow, keyed by chat id.
 _add_flow_state: dict[int, dict] = {}
@@ -313,7 +304,7 @@ async def notify_owner_of_order(order_doc: dict):
 
 
 async def main():
-    await bot.start(bot_token=BOT_TOKEN)
+    await start_bot_client()
     print("🤖 Vidyalay admin bot is running...")
     await bot.run_until_disconnected()
 
