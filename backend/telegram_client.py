@@ -7,10 +7,12 @@ Two modes, chosen automatically based on what's in .env:
   1. String-session mode (TELEGRAM_STRING_SESSION set) — logs in as a
      regular Telegram user account. Higher upload limits.
 
-  2. Bot-token mode (TELEGRAM_STRING_SESSION left blank/removed) — logs in
-     as the bot itself using BOT_TOKEN. No session string needed. This is
-     the default/fallback mode. Bot must be an ADMIN of STORAGE_CHANNEL_ID
-     for send/read/delete to work.
+  2. Bot-token mode (TELEGRAM_STRING_SESSION left blank/removed) — reuses
+     the SAME shared bot client from bot_client.py that the admin bot
+     (bot.py) already logs in with. No session string needed, and no
+     duplicate bot-token login (which is what triggers Telegram's
+     FloodWaitError on ImportBotAuthorizationRequest). Bot must be an
+     ADMIN of STORAGE_CHANNEL_ID for send/read/delete to work.
 """
 import io
 from telethon import TelegramClient
@@ -20,13 +22,11 @@ from config import (
     TELEGRAM_API_ID,
     TELEGRAM_API_HASH,
     TELEGRAM_STRING_SESSION,
-    BOT_TOKEN,
     STORAGE_CHANNEL_ID,
 )
 
 USING_STRING_SESSION = bool(TELEGRAM_STRING_SESSION.strip())
 
-# A single shared client instance, connected on app startup.
 if USING_STRING_SESSION:
     tg_client = TelegramClient(
         StringSession(TELEGRAM_STRING_SESSION),
@@ -34,18 +34,14 @@ if USING_STRING_SESSION:
         TELEGRAM_API_HASH,
     )
 else:
-    # No string session given -> fall back to logging in as the bot itself.
-    # Uses a local .session file (fine on Render's ephemeral disk; it just
-    # re-authenticates with BOT_TOKEN on every fresh deploy/restart).
-    tg_client = TelegramClient(
-        "storage_bot_session",
-        TELEGRAM_API_ID,
-        TELEGRAM_API_HASH,
-    )
+    # No string session given -> reuse the one shared bot-token client
+    # instead of creating a second bot login (avoids double
+    # ImportBotAuthorizationRequest -> FloodWaitError).
+    from bot_client import bot as tg_client, start_bot_client
 
 
 async def start_client():
-    """Connect using the string session if provided, otherwise bot token."""
+    """Connect using the string session if provided, otherwise the shared bot client."""
     if tg_client.is_connected():
         return
 
@@ -54,15 +50,18 @@ async def start_client():
         if not await tg_client.is_user_authorized():
             raise RuntimeError(
                 "Telegram string session is invalid or expired. "
-                "Regenerate it with generate_session.py, or simply remove "
+                "Regenerate it with generate_session.py, or remove "
                 "TELEGRAM_STRING_SESSION from .env to use bot-token mode."
             )
     else:
-        await tg_client.start(bot_token=BOT_TOKEN)
+        await start_bot_client()
 
 
 async def stop_client():
-    if tg_client.is_connected():
+    # In bot-token mode, tg_client IS the shared admin bot client — don't
+    # disconnect it here, or the admin bot dies with it. Only disconnect
+    # in string-session mode, where this client is dedicated to storage.
+    if USING_STRING_SESSION and tg_client.is_connected():
         await tg_client.disconnect()
 
 
@@ -108,3 +107,4 @@ async def delete_pdf(message_id: int):
     """Delete the stored file from the private channel."""
     await start_client()
     await tg_client.delete_messages(STORAGE_CHANNEL_ID, [message_id])
+  
