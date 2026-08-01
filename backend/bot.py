@@ -8,7 +8,10 @@ process using asyncio.gather — see run_all.py):
     python bot.py
 
 Commands:
-    /add                      - add a new study material (guided flow)
+    /add                      - add study material(s) (guided flow, supports
+                                 sending multiple PDFs in a row under one
+                                 category — finish with /done)
+    /done                     - finish an in-progress /add bulk session
     /delete <10-digit-id>     - remove a document
     /list                     - list all documents
     /stats                    - usage statistics
@@ -56,7 +59,7 @@ def _owner_only(func):
 @_owner_only
 async def add_command(event):
     _add_flow_state[event.chat_id] = {"step": "title"}
-    await event.respond("📘 Let's add a new study material.\n\nSend the **title** of the document.")
+    await event.respond("📘 Let's add new study material(s).\n\nSend the **title** of the document.")
 
 
 @bot.on(events.NewMessage())
@@ -67,7 +70,7 @@ async def add_flow_router(event):
         return  # not in an /add flow
 
     if event.text and event.text.startswith("/"):
-        return  # let other command handlers take it
+        return  # let other command handlers (e.g. /done) take it
 
     step = state["step"]
 
@@ -92,41 +95,79 @@ async def add_flow_router(event):
     elif step == "description":
         state["description"] = event.text.strip()
         state["step"] = "file"
-        await event.respond("📎 Now send the PDF file itself.")
+        state["count"] = 0
+        await event.respond(
+            "📎 Now send the PDF file(s).\n\n"
+            "You can send as many PDFs as you want, one after another — "
+            "each one is saved as its own document under this same category "
+            "and description (title is taken from each file's name).\n\n"
+            "When you're done, send /done to finish."
+        )
 
     elif step == "file":
         if not event.document:
-            await event.respond("Please send the file as a PDF document (not an image).")
+            await event.respond("Please send the file as a PDF document (not an image), or /done to finish.")
             return
+
         await event.respond("⏳ Uploading to secure storage, please wait...")
 
-        file_bytes = await event.download_media(bytes)
-        filename = event.document.attributes[0].file_name if event.document.attributes else "material.pdf"
-        size_mb = round(len(file_bytes) / (1024 * 1024), 2)
+        try:
+            file_bytes = await event.download_media(bytes)
+            raw_filename = event.document.attributes[0].file_name if event.document.attributes else "material.pdf"
+            size_mb = round(len(file_bytes) / (1024 * 1024), 2)
 
-        upload_result = await upload_pdf(file_bytes, filename, caption=state["title"])
+            # Auto-derive a readable title from the filename for this file,
+            # falling back to the batch title if the filename is unusable.
+            name_without_ext = raw_filename.rsplit(".", 1)[0]
+            auto_title = name_without_ext.replace("_", " ").replace("-", " ").strip() or state["title"]
 
-        doc_id = await generate_unique_doc_id()
-        await documents_col.insert_one({
-            "doc_id": doc_id,
-            "title": state["title"],
-            "category": state["category"],
-            "description": state["description"],
-            "telegram_message_id": upload_result["message_id"],
-            "telegram_file_unique_id": upload_result["telegram_file_unique_id"],
-            "file_size_mb": size_mb,
-            "upload_date": datetime.utcnow(),
-            "download_count": 0,
-        })
+            upload_result = await upload_pdf(file_bytes, raw_filename, caption=auto_title)
 
-        _add_flow_state.pop(event.chat_id, None)
-        await event.respond(
-            f"✅ Added successfully!\n\n"
-            f"**Title:** {state['title']}\n"
-            f"**Category:** {state['category']}\n"
-            f"**ID:** `{doc_id}`\n"
-            f"**Size:** {size_mb} MB"
-        )
+            doc_id = await generate_unique_doc_id()
+            await documents_col.insert_one({
+                "doc_id": doc_id,
+                "title": auto_title,
+                "category": state["category"],
+                "description": state["description"],
+                "telegram_message_id": upload_result["message_id"],
+                "telegram_file_unique_id": upload_result["telegram_file_unique_id"],
+                "file_size_mb": size_mb,
+                "upload_date": datetime.utcnow(),
+                "download_count": 0,
+            })
+
+            state["count"] += 1
+            await event.respond(
+                f"✅ Added ({state['count']} so far)\n\n"
+                f"**Title:** {auto_title}\n"
+                f"**Category:** {state['category']}\n"
+                f"**ID:** `{doc_id}`\n"
+                f"**Size:** {size_mb} MB\n\n"
+                f"Send the next PDF, or /done to finish."
+            )
+        except Exception as e:
+            print(f"[ERROR] Upload failed: {e}")
+            await event.respond(
+                f"❌ Upload failed: `{e}`\n\n"
+                f"Common cause: the bot isn't an admin of the storage channel "
+                f"(needs Post + Delete permissions). Send the file again to retry, "
+                f"or /done to stop here."
+            )
+
+
+# ---------------------------------------------------------------------------
+# /done — finish an in-progress /add bulk-upload session
+# ---------------------------------------------------------------------------
+
+@bot.on(events.NewMessage(pattern="/done"))
+@_owner_only
+async def done_command(event):
+    state = _add_flow_state.pop(event.chat_id, None)
+    if not state or state.get("step") != "file":
+        await event.respond("Nothing to finish — you're not in an active /add session.")
+        return
+    count = state.get("count", 0)
+    await event.respond(f"🏁 Done. {count} document(s) added under **{state['category']}**.")
 
 
 # ---------------------------------------------------------------------------
@@ -279,3 +320,4 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+    
