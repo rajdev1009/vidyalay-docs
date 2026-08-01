@@ -38,10 +38,13 @@ class UserOut(BaseModel):
 class OrderCreate(BaseModel):
     email: Optional[EmailStr] = None
     doc_id: Optional[str] = None
+    category: Optional[str] = None
     amount_inr: int
     note: Optional[str] = None
 
 
 class UnlockRequest(BaseModel):
     identifier: str   # email or telegram user id
+    category: str     # which category to grant access to
     days: int = 30
+    
