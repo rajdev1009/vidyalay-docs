@@ -10,6 +10,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc =
 let currentUserIdentifier = localStorage.getItem("vidyalay_identifier") || "";
 let currentPreviewDocId = null;
 let currentPreviewTitle = null;
+let currentPreviewCategory = null;
 let ownerWhatsappNumber = "917099451692"; // overwritten by loadBranding()
 
 // ---------------------------------------------------------------
@@ -124,8 +125,8 @@ function docCardHTML(doc) {
         <span>${doc.download_count || 0} downloads</span>
       </div>
       <div class="mt-auto flex gap-2">
-        <button class="preview-btn flex-1 h-9 rounded-md border border-[#0B1E3D] text-[#0B1E3D] text-xs font-semibold hover:bg-[#0B1E3D] hover:text-white transition-colors" data-id="${doc.doc_id}" data-title="${doc.title}">Preview</button>
-        <button class="download-btn flex-1 h-9 rounded-md bg-[#F2B705] hover:bg-[#e0a900] text-[#0B1E3D] text-xs font-semibold transition-colors" data-id="${doc.doc_id}" data-title="${doc.title}">Download</button>
+        <button class="preview-btn flex-1 h-9 rounded-md border border-[#0B1E3D] text-[#0B1E3D] text-xs font-semibold hover:bg-[#0B1E3D] hover:text-white transition-colors" data-id="${doc.doc_id}" data-title="${doc.title}" data-category="${doc.category}">Preview</button>
+        <button class="download-btn flex-1 h-9 rounded-md bg-[#F2B705] hover:bg-[#e0a900] text-[#0B1E3D] text-xs font-semibold transition-colors" data-id="${doc.doc_id}" data-title="${doc.title}" data-category="${doc.category}">Download</button>
       </div>
     </div>
   `;
@@ -144,10 +145,10 @@ function skeletonCardHTML() {
 
 function attachCardHandlers(container) {
   container.querySelectorAll(".preview-btn").forEach(btn => {
-    btn.addEventListener("click", () => openPreview(btn.dataset.id, btn.dataset.title));
+    btn.addEventListener("click", () => openPreview(btn.dataset.id, btn.dataset.title, btn.dataset.category));
   });
   container.querySelectorAll(".download-btn").forEach(btn => {
-    btn.addEventListener("click", () => attemptDownload(btn.dataset.id, btn.dataset.title));
+    btn.addEventListener("click", () => attemptDownload(btn.dataset.id, btn.dataset.title, btn.dataset.category));
   });
 }
 
@@ -210,9 +211,30 @@ async function loadRecent() {
 // ---------------------------------------------------------------
 // PDF Preview (PDF.js)
 // ---------------------------------------------------------------
-async function openPreview(docId, title) {
+async function openPreview(docId, title, category) {
+  if (!currentUserIdentifier) {
+    currentUserIdentifier = prompt("Enter your email to check subscription status:") || "";
+    if (!currentUserIdentifier) return;
+    localStorage.setItem("vidyalay_identifier", currentUserIdentifier);
+  }
+
+  // Preview is payment-gated per category, same as download — check first.
+  try {
+    const statusRes = await fetch(`${API_BASE}/api/subscription-status?identifier=${encodeURIComponent(currentUserIdentifier)}&category=${encodeURIComponent(category)}`);
+    const status = await statusRes.json();
+    if (!status.active) {
+      openPaymentModal(docId, title, category);
+      return;
+    }
+  } catch (e) {
+    console.error("subscription check failed", e);
+    showToast("Could not verify subscription — try again", true);
+    return;
+  }
+
   currentPreviewDocId = docId;
   currentPreviewTitle = title || "";
+  currentPreviewCategory = category || "";
   const modal = document.getElementById("preview-modal");
   const canvas = document.getElementById("pdf-canvas");
   const loading = document.getElementById("preview-loading");
@@ -225,7 +247,7 @@ async function openPreview(docId, title) {
   loading.textContent = "Loading preview...";
 
   try {
-    const url = `${API_BASE}/api/preview/${docId}`;
+    const url = `${API_BASE}/api/preview/${docId}?identifier=${encodeURIComponent(currentUserIdentifier)}`;
     const loadingTask = pdfjsLib.getDocument(url);
     const pdf = await loadingTask.promise;
     const page = await pdf.getPage(1);
@@ -250,13 +272,13 @@ document.getElementById("preview-close-btn").addEventListener("click", () => {
 });
 
 document.getElementById("preview-download-btn").addEventListener("click", () => {
-  if (currentPreviewDocId) attemptDownload(currentPreviewDocId, currentPreviewTitle);
+  if (currentPreviewDocId) attemptDownload(currentPreviewDocId, currentPreviewTitle, currentPreviewCategory);
 });
 
 // ---------------------------------------------------------------
 // Download flow (payment-gated)
 // ---------------------------------------------------------------
-async function attemptDownload(docId, title) {
+async function attemptDownload(docId, title, category) {
   if (!currentUserIdentifier) {
     currentUserIdentifier = prompt("Enter your email to check subscription status:") || "";
     if (!currentUserIdentifier) return;
@@ -264,11 +286,11 @@ async function attemptDownload(docId, title) {
   }
 
   try {
-    const statusRes = await fetch(`${API_BASE}/api/subscription-status?identifier=${encodeURIComponent(currentUserIdentifier)}`);
+    const statusRes = await fetch(`${API_BASE}/api/subscription-status?identifier=${encodeURIComponent(currentUserIdentifier)}&category=${encodeURIComponent(category)}`);
     const status = await statusRes.json();
 
     if (!status.active) {
-      openPaymentModal(docId, title);
+      openPaymentModal(docId, title, category);
       return;
     }
 
@@ -292,17 +314,19 @@ async function attemptDownload(docId, title) {
 // ---------------------------------------------------------------
 let paymentDocId = null;
 let paymentDocTitle = null;
+let paymentDocCategory = null;
 let paymentMonthlyFee = 99;
 
-function openPaymentModal(docId, title) {
+function openPaymentModal(docId, title, category) {
   paymentDocId = docId || null;
   paymentDocTitle = title || null;
+  paymentDocCategory = category || null;
   document.getElementById("payment-email-input").value = currentUserIdentifier || "";
 
   const selectedBox = document.getElementById("payment-selected-doc");
   const selectedTitleEl = document.getElementById("payment-selected-doc-title");
   if (paymentDocTitle) {
-    selectedTitleEl.textContent = paymentDocTitle;
+    selectedTitleEl.textContent = paymentDocCategory ? `${paymentDocTitle} (${paymentDocCategory})` : paymentDocTitle;
     selectedBox.classList.remove("hidden");
   } else {
     selectedBox.classList.add("hidden");
@@ -338,7 +362,7 @@ document.getElementById("payment-continue-btn").addEventListener("click", async 
     await fetch(`${API_BASE}/api/orders`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, doc_id: paymentDocId, amount_inr: paymentMonthlyFee }),
+      body: JSON.stringify({ email, doc_id: paymentDocId, category: paymentDocCategory, amount_inr: paymentMonthlyFee }),
     });
   } catch (e) {
     console.error("order logging failed", e);
@@ -346,7 +370,7 @@ document.getElementById("payment-continue-btn").addEventListener("click", async 
   }
 
   const itemLine = paymentDocTitle
-    ? `Item: ${paymentDocTitle}${paymentDocId ? " (ID: " + paymentDocId + ")" : ""}`
+    ? `Item: ${paymentDocTitle}${paymentDocId ? " (ID: " + paymentDocId + ")" : ""}${paymentDocCategory ? "\nCategory: " + paymentDocCategory : ""}`
     : "Item: Monthly subscription";
 
   const message =
@@ -395,3 +419,4 @@ loadBranding();
 loadCategories();
 loadStats();
 loadRecent();
+  
