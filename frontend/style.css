@@ -1,0 +1,54 @@
+:root {
+  --navy: #0B1E3D;
+  --navy-light: #152a4d;
+  --yellow: #F2B705;
+  --cream: #F6F5F1;
+}
+
+body { font-family: 'Inter', system-ui, sans-serif; }
+.font-display { font-family: 'Fraunces', serif; }
+.font-mono { font-family: 'JetBrains Mono', monospace; }
+
+/* Document / category cards */
+.doc-card, .category-card {
+  background: #fff;
+  border: 1px solid #EAE7DD;
+  border-radius: 0.85rem;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+.doc-card:hover, .category-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 30px -12px rgba(11, 30, 61, 0.18);
+  border-color: #F2B705;
+}
+
+/* Skeleton loader */
+.skeleton {
+  background: linear-gradient(90deg, #EEEAE0 25%, #F6F3EA 37%, #EEEAE0 63%);
+  background-size: 400% 100%;
+  animation: skeleton-loading 1.4s ease infinite;
+  border-radius: 0.6rem;
+}
+@keyframes skeleton-loading {
+  0% { background-position: 100% 50%; }
+  100% { background-position: 0 50%; }
+}
+
+/* Toast animation */
+#toast.show {
+  animation: toast-in 0.25s ease forwards;
+}
+@keyframes toast-in {
+  from { opacity: 0; transform: translate(-50%, 12px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
+
+/* Scrollbar for modal */
+#preview-modal .overflow-auto::-webkit-scrollbar { width: 10px; }
+#preview-modal .overflow-auto::-webkit-scrollbar-thumb {
+  background: #C9C4B4; border-radius: 6px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .doc-card, .category-card, #toast.show, .skeleton { animation: none !important; transition: none !important; }
+}

@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Vidyalay Coaching Centre — Study Portal | ADRE, Assam Police, SSC & Railway Notes</title>
+<meta name="description" content="Download verified ADRE, Assam Police, SSC, and Railway exam study materials, handwritten notes, and previous year PDFs from Vidyalay Coaching Centre." />
+<meta name="keywords" content="ADRE study material, Assam Police notes, SSC PDF, Railway RRB notes, Vidyalay Coaching Centre" />
+<meta property="og:title" content="Vidyalay Coaching Centre — Study Portal" />
+<meta property="og:description" content="Your Trusted Partner for Government Job Success" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body class="bg-[#F6F5F1] text-[#0B1E3D] antialiased">
+
+<!-- ============================= NAVBAR ============================= -->
+<header class="sticky top-0 z-40 bg-[#0B1E3D]/95 backdrop-blur border-b border-[#1B3358]">
+  <div class="max-w-7xl mx-auto px-5 md:px-8 h-16 flex items-center justify-between">
+    <div class="flex items-center gap-2.5">
+      <div class="w-9 h-9 rounded-md bg-[#F2B705] flex items-center justify-center font-display font-bold text-[#0B1E3D] text-lg">V</div>
+      <span class="font-display font-semibold text-white text-lg tracking-tight" id="brand-name-nav">Vidyalay Coaching Centre</span>
+    </div>
+    <nav class="hidden md:flex items-center gap-8 text-sm text-[#C9D3E4] font-medium">
+      <a href="#categories" class="hover:text-[#F2B705] transition-colors">Categories</a>
+      <a href="#recent" class="hover:text-[#F2B705] transition-colors">Recently Added</a>
+      <a href="#contact" class="hover:text-[#F2B705] transition-colors">Contact</a>
+    </nav>
+    <button id="nav-subscribe-btn" class="bg-[#F2B705] hover:bg-[#e0a900] text-[#0B1E3D] text-sm font-semibold px-4 py-2 rounded-md transition-colors">Subscribe</button>
+  </div>
+</header>
+
+<!-- ============================= HERO ============================= -->
+<section class="relative bg-[#0B1E3D] overflow-hidden">
+  <div class="absolute inset-0 opacity-[0.07]" style="background-image: radial-gradient(circle at 2px 2px, #F2B705 1px, transparent 0); background-size: 28px 28px;"></div>
+  <div class="relative max-w-5xl mx-auto px-5 md:px-8 pt-16 pb-20 md:pt-24 md:pb-28 text-center">
+    <span class="inline-block text-[#F2B705] text-xs font-mono font-medium tracking-[0.2em] uppercase mb-5 border border-[#F2B705]/30 rounded-full px-3 py-1">Est. for Assam's Aspirants</span>
+    <h1 class="font-display font-semibold text-4xl md:text-6xl text-white leading-[1.08] tracking-tight" id="brand-name-hero">
+      Vidyalay Coaching Centre
+    </h1>
+    <p class="mt-4 text-[#C9D3E4] text-lg md:text-xl max-w-2xl mx-auto" id="brand-tagline">
+      Your Trusted Partner for Government Job Success
+    </p>
+
+    <!-- Search -->
+    <div class="mt-10 max-w-2xl mx-auto">
+      <div class="relative">
+        <input id="search-input" type="text" placeholder="Search by title, keyword, or 10-digit ID..."
+          class="w-full h-14 rounded-xl bg-white pl-5 pr-32 text-[#0B1E3D] placeholder:text-[#8B93A7] shadow-lg focus:outline-none focus:ring-2 focus:ring-[#F2B705] text-base" />
+        <button id="search-btn" class="absolute right-1.5 top-1.5 h-11 px-5 rounded-lg bg-[#0B1E3D] hover:bg-[#152a4d] text-white text-sm font-semibold transition-colors">Search</button>
+      </div>
+      <div class="mt-3 flex flex-wrap justify-center gap-2 text-xs text-[#8FA0C0]">
+        <span>Try:</span>
+        <button class="quick-search hover:text-[#F2B705] underline underline-offset-2" data-q="ADRE">ADRE</button>
+        <button class="quick-search hover:text-[#F2B705] underline underline-offset-2" data-q="SSC">SSC</button>
+        <button class="quick-search hover:text-[#F2B705] underline underline-offset-2" data-q="Assam Police">Assam Police</button>
+        <button class="quick-search hover:text-[#F2B705] underline underline-offset-2" data-q="Railway">Railway</button>
+      </div>
+    </div>
+
+    <!-- Live counters -->
+    <div class="mt-14 grid grid-cols-3 gap-4 max-w-2xl mx-auto text-center">
+      <div>
+        <div class="font-display font-semibold text-2xl md:text-3xl text-[#F2B705]" id="stat-materials">—</div>
+        <div class="text-xs md:text-sm text-[#8FA0C0] mt-1">Study Materials</div>
+      </div>
+      <div>
+        <div class="font-display font-semibold text-2xl md:text-3xl text-[#F2B705]" id="stat-downloads">—</div>
+        <div class="text-xs md:text-sm text-[#8FA0C0] mt-1">Downloads</div>
+      </div>
+      <div>
+        <div class="font-display font-semibold text-2xl md:text-3xl text-[#F2B705]" id="stat-updated">—</div>
+        <div class="text-xs md:text-sm text-[#8FA0C0] mt-1">Last Updated</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================= CATEGORIES ============================= -->
+<section id="categories" class="max-w-7xl mx-auto px-5 md:px-8 py-16">
+  <h2 class="font-display font-semibold text-2xl md:text-3xl mb-2">Browse by Category</h2>
+  <p class="text-[#5A6478] mb-8">Curated material sets for every major recruitment exam.</p>
+  <div id="category-grid" class="grid grid-cols-2 md:grid-cols-3 gap-4"></div>
+</section>
+
+<!-- ============================= SEARCH RESULTS ============================= -->
+<section id="results-section" class="max-w-7xl mx-auto px-5 md:px-8 pb-16 hidden">
+  <div class="flex items-center justify-between mb-6">
+    <h2 class="font-display font-semibold text-2xl">Search Results</h2>
+    <button id="clear-search" class="text-sm text-[#5A6478] hover:text-[#0B1E3D] underline underline-offset-2">Clear</button>
+  </div>
+  <div id="results-grid" class="grid sm:grid-cols-2 lg:grid-cols-3 gap-5"></div>
+  <div id="results-empty" class="hidden text-center py-16 text-[#8B93A7]">No documents matched your search. Try a different keyword or the 10-digit ID.</div>
+</section>
+
+<!-- ============================= RECENTLY ADDED ============================= -->
+<section id="recent" class="max-w-7xl mx-auto px-5 md:px-8 py-16 bg-white border-y border-[#EAE7DD]">
+  <h2 class="font-display font-semibold text-2xl md:text-3xl mb-2">Last 10 Recently Added Notes</h2>
+  <p class="text-[#5A6478] mb-8">Freshly uploaded materials, ready to preview.</p>
+  <div id="recent-grid" class="grid sm:grid-cols-2 lg:grid-cols-4 gap-5"></div>
+</section>
+
+<!-- ============================= FOOTER ============================= -->
+<footer id="contact" class="bg-[#0B1E3D] text-[#C9D3E4] mt-auto">
+  <div class="max-w-7xl mx-auto px-5 md:px-8 py-12 grid md:grid-cols-3 gap-10">
+    <div>
+      <div class="flex items-center gap-2.5 mb-3">
+        <div class="w-8 h-8 rounded-md bg-[#F2B705] flex items-center justify-center font-display font-bold text-[#0B1E3D]">V</div>
+        <span class="font-display font-semibold text-white" id="brand-name-footer">Vidyalay Coaching Centre</span>
+      </div>
+      <p class="text-sm text-[#8FA0C0] leading-relaxed" id="disclaimer-text">For educational and reference purposes only. All materials are curated for Vidyalay Coaching Centre aspirants.</p>
+    </div>
+    <div>
+      <h3 class="font-semibold text-white mb-3 text-sm uppercase tracking-wide">Contact</h3>
+      <p class="text-sm mb-1">Email: <a href="mailto:soptam55@gmail.com" id="footer-email" class="hover:text-[#F2B705]">soptam55@gmail.com</a></p>
+      <p class="text-sm">Phone: <a href="tel:+917099451692" id="footer-phone" class="hover:text-[#F2B705]">+91 7099451692</a></p>
+    </div>
+    <div>
+      <h3 class="font-semibold text-white mb-3 text-sm uppercase tracking-wide">Categories</h3>
+      <ul class="text-sm space-y-1.5 text-[#8FA0C0]" id="footer-categories"></ul>
+    </div>
+  </div>
+  <div class="border-t border-[#1B3358] py-5 text-center text-xs text-[#6B7A9A]">
+    © 2026 Vidyalay Coaching Centre. All rights reserved.
+  </div>
+</footer>
+
+<!-- ============================= PDF PREVIEW MODAL ============================= -->
+<div id="preview-modal" class="fixed inset-0 z-50 hidden bg-black/60 backdrop-blur-sm items-center justify-center p-3 md:p-8">
+  <div class="bg-white rounded-xl w-full max-w-4xl h-full md:h-[85vh] flex flex-col overflow-hidden shadow-2xl">
+    <div class="flex items-center justify-between px-5 py-3 border-b border-[#EAE7DD]">
+      <div>
+        <h3 id="preview-title" class="font-display font-semibold text-base">Document Preview</h3>
+        <p class="text-xs text-[#8B93A7]">Preview only — full download requires an active subscription</p>
+      </div>
+      <div class="flex items-center gap-2">
+        <button id="preview-download-btn" class="bg-[#0B1E3D] hover:bg-[#152a4d] text-white text-sm font-semibold px-4 py-2 rounded-md">Download</button>
+        <button id="preview-close-btn" class="w-9 h-9 rounded-md hover:bg-[#F6F5F1] flex items-center justify-center text-xl">&times;</button>
+      </div>
+    </div>
+    <div class="flex-1 overflow-auto bg-[#EAE7DD] p-2 md:p-4">
+      <canvas id="pdf-canvas" class="mx-auto shadow-md bg-white"></canvas>
+      <div id="preview-loading" class="text-center text-[#8B93A7] py-16">Loading preview...</div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================= PAYMENT MODAL ============================= -->
+<div id="payment-modal" class="fixed inset-0 z-50 hidden bg-black/60 backdrop-blur-sm items-center justify-center p-4">
+  <div class="bg-white rounded-xl w-full max-w-sm p-6 shadow-2xl text-center">
+    <h3 class="font-display font-semibold text-xl mb-1">Unlock Full Access</h3>
+    <p class="text-sm text-[#5A6478] mb-3">Subscribe for <span id="payment-fee" class="font-semibold">₹99</span>/month to download original, corruption-free PDFs.</p>
+
+    <div id="payment-selected-doc" class="hidden bg-[#FDF6E3] border border-[#F2B705]/40 rounded-lg px-4 py-2.5 mb-4 text-left">
+      <p class="text-[10px] uppercase tracking-wide text-[#8B7A2F] font-semibold mb-0.5">Selected material</p>
+      <p class="text-sm font-medium text-[#0B1E3D]" id="payment-selected-doc-title">—</p>
+    </div>
+
+    <div class="bg-[#F6F5F1] rounded-lg p-5 mb-5">
+      <div class="w-40 h-40 mx-auto bg-white rounded-md flex items-center justify-center border border-[#EAE7DD]" id="upi-qr-box">
+        <span class="text-xs text-[#8B93A7] px-4">UPI QR Code<br/>(scan to pay)</span>
+      </div>
+      <p class="mt-3 text-xs text-[#5A6478] font-mono" id="upi-id-text">UPI ID: vidyalaycoaching@upi</p>
+    </div>
+
+    <input id="payment-email-input" type="email" placeholder="Your email (for account unlock)" class="w-full h-11 rounded-md border border-[#DCD8CB] px-3 text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-[#F2B705]" />
+
+    <button id="payment-continue-btn" class="w-full h-11 rounded-md bg-[#25D366] hover:bg-[#1fbd5a] text-white font-semibold text-sm mb-2 flex items-center justify-center gap-2">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17.5 14.4c-.3-.1-1.7-.9-2-1-.3-.1-.5-.1-.7.1-.2.3-.8 1-.9 1.2-.2.2-.3.2-.6.1-.3-.2-1.2-.5-2.3-1.5-.9-.8-1.4-1.7-1.6-2-.2-.3 0-.5.1-.6.1-.1.3-.3.4-.5.1-.1.2-.3.3-.5.1-.2 0-.4 0-.5C10.1 9 9.6 7.8 9.4 7.3c-.2-.5-.4-.4-.6-.4h-.5c-.2 0-.5.1-.7.3-.3.3-1 1-1 2.4s1 2.8 1.2 3c.1.2 2 3 4.8 4.3.7.3 1.2.5 1.6.6.7.2 1.3.2 1.8.1.5-.1 1.7-.7 1.9-1.3.2-.7.2-1.2.2-1.3-.1-.2-.3-.2-.6-.4z"/><path d="M12 2C6.5 2 2 6.5 2 12c0 1.9.5 3.6 1.4 5.1L2 22l5.1-1.3C8.6 21.5 10.3 22 12 22c5.5 0 10-4.5 10-10S17.5 2 12 2zm0 18.2c-1.6 0-3.1-.4-4.4-1.2l-.3-.2-3.3.9.9-3.2-.2-.3C4 14.7 3.6 13.4 3.6 12 3.6 7.4 7.4 3.6 12 3.6S20.4 7.4 20.4 12 16.6 20.2 12 20.2z"/></svg>
+      Continue on WhatsApp
+    </button>
+    <p class="text-xs text-[#8B93A7] mb-3">Opens WhatsApp with your order pre-filled — just attach your payment screenshot and send.</p>
+
+    <button id="payment-close-btn" class="text-xs text-[#8B93A7] hover:text-[#0B1E3D] underline">Close</button>
+  </div>
+</div>
+
+<!-- ============================= TOAST ============================= -->
+<div id="toast" class="fixed bottom-5 left-1/2 -translate-x-1/2 z-[60] hidden bg-[#0B1E3D] text-white text-sm font-medium px-5 py-3 rounded-lg shadow-xl"></div>
+
+<script src="app.js"></script>
+</body>
+</html>
