@@ -1,0 +1,42 @@
+services:
+  - type: web
+    name: vidyalay-docs
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    healthCheckPath: /api/stats
+    envVars:
+      - key: MONGO_URI
+        sync: false
+      - key: MONGO_DB_NAME
+        value: vidyalay_docs
+      - key: TELEGRAM_API_ID
+        sync: false
+      - key: TELEGRAM_API_HASH
+        sync: false
+      - key: TELEGRAM_STRING_SESSION
+        sync: false
+      - key: STORAGE_CHANNEL_ID
+        sync: false
+      - key: BOT_TOKEN
+        sync: false
+      - key: OWNER_CHAT_ID
+        sync: false
+      - key: APP_SECRET_KEY
+        generateValue: true
+      - key: BASE_URL
+        sync: false
+      - key: ENV
+        value: production
+      - key: COACHING_NAME
+        value: Vidyalay Coaching Centre
+      - key: COACHING_TAGLINE
+        value: Your Trusted Partner for Government Job Success
+      - key: COACHING_PHONE
+        value: "+91 7099451692"
+      - key: COACHING_EMAIL
+        value: soptam55@gmail.com
+      - key: COACHING_UPI_ID
+        sync: false
+      - key: MONTHLY_FEE_INR
+        value: "99"
