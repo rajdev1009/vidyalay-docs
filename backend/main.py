@@ -15,7 +15,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import StreamingResponse, FileResponse
 import io
 
-from config import BRANDING, CATEGORIES, BASE_URL
+from config import BRANDING, CATEGORIES, BASE_URL, ADMIN_ACCESS_CODE, DEVELOPER_INFO
 from database import documents_col, users_col, orders_col, ensure_indexes
 from models import DocumentCreate, OrderCreate, UnlockRequest
 from telegram_client import start_client, stop_client, stream_pdf_bytes
@@ -58,6 +58,35 @@ async def get_branding():
 @app.get("/api/categories")
 async def get_categories():
     return {"categories": CATEGORIES}
+
+
+@app.get("/api/developer")
+async def get_developer_info():
+    """Public info shown in the 'Developer' panel — no secrets here."""
+    return DEVELOPER_INFO
+
+
+# ---------------------------------------------------------------------------
+# Admin backdoor — verified server-side only. The secret code never lives in
+# the frontend JS; the browser just forwards whatever the visitor typed.
+# ---------------------------------------------------------------------------
+
+@app.get("/api/admin/verify")
+async def admin_verify(code: str = Query(...)):
+    return {"valid": code == ADMIN_ACCESS_CODE}
+
+
+@app.get("/api/admin/lookup/{doc_id}")
+async def admin_lookup(doc_id: str, code: str = Query(...)):
+    if code != ADMIN_ACCESS_CODE:
+        raise HTTPException(403, "Invalid code")
+    doc = await documents_col.find_one({"doc_id": doc_id})
+    if not doc:
+        raise HTTPException(404, "Document not found")
+    doc.pop("_id", None)
+    doc.pop("telegram_message_id", None)
+    doc.pop("telegram_file_unique_id", None)
+    return doc
 
 
 @app.get("/api/stats")
@@ -126,12 +155,17 @@ async def search_documents(
 # ---------------------------------------------------------------------------
 
 @app.get("/api/preview/{doc_id}")
-async def preview_document(doc_id: str, identifier: str = Query(..., description="email or telegram_user_id")):
+async def preview_document(
+    doc_id: str,
+    identifier: str = Query(..., description="email or telegram_user_id"),
+    admin_code: str = Query(None, description="owner-only override, bypasses subscription check"),
+):
     doc = await documents_col.find_one({"doc_id": doc_id})
     if not doc:
         raise HTTPException(404, "Document not found")
 
-    active = await is_user_active_for_category(identifier, doc["category"])
+    is_admin = admin_code is not None and admin_code == ADMIN_ACCESS_CODE
+    active = is_admin or await is_user_active_for_category(identifier, doc["category"])
     if not active:
         raise HTTPException(
             402,
@@ -160,12 +194,17 @@ async def preview_document(doc_id: str, identifier: str = Query(..., description
 # ---------------------------------------------------------------------------
 
 @app.get("/api/download/{doc_id}")
-async def download_document(doc_id: str, identifier: str = Query(..., description="email or telegram_user_id")):
+async def download_document(
+    doc_id: str,
+    identifier: str = Query(..., description="email or telegram_user_id"),
+    admin_code: str = Query(None, description="owner-only override, bypasses subscription check"),
+):
     doc = await documents_col.find_one({"doc_id": doc_id})
     if not doc:
         raise HTTPException(404, "Document not found")
 
-    active = await is_user_active_for_category(identifier, doc["category"])
+    is_admin = admin_code is not None and admin_code == ADMIN_ACCESS_CODE
+    active = is_admin or await is_user_active_for_category(identifier, doc["category"])
     if not active:
         raise HTTPException(
             402,
