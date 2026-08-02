@@ -140,4 +140,129 @@ async def get_all_users_summary(limit: int = 100) -> list[dict]:
     """Returns all tracked users for the /Dashboard command, most active first."""
     cursor = users_col.find().sort("last_active", -1).limit(limit)
     return await cursor.to_list(length=limit)
+
+
+# ---------------------------------------------------------------------------
+# Site-wide announcement banner (shown above the header on the website,
+# set/updated/cleared via the /broadcast command)
+# ---------------------------------------------------------------------------
+
+async def set_broadcast_message(text: str):
+    from database import settings_col
+    await settings_col.update_one(
+        {"_id": "broadcast"},
+        {"$set": {"text": text, "updated_at": datetime.utcnow()}},
+        upsert=True,
+    )
+
+
+async def clear_broadcast_message():
+    from database import settings_col
+    await settings_col.delete_one({"_id": "broadcast"})
+
+
+async def get_broadcast_message() -> str | None:
+    from database import settings_col
+    doc = await settings_col.find_one({"_id": "broadcast"})
+    return doc["text"] if doc else None
+
+
+# ---------------------------------------------------------------------------
+# Course metadata — online/offline + location, full-course price, monthly
+# price. Stored per category name; falls back to sensible defaults if the
+# owner has never customised that category.
+# ---------------------------------------------------------------------------
+
+async def get_course_info(category: str, default_monthly_fee: int) -> dict:
+    from database import courses_col
+    doc = await courses_col.find_one({"_id": category}) or {}
+    return {
+        "category": category,
+        "type": doc.get("type", "online"),
+        "location": doc.get("location"),
+        "full_course_price": doc.get("full_course_price"),
+        "monthly_price": doc.get("monthly_price", default_monthly_fee),
+    }
+
+
+async def set_course_price(category: str, kind: str, price: int):
+    """kind: 'full' or 'monthly'"""
+    from database import courses_col
+    field = "full_course_price" if kind == "full" else "monthly_price"
+    await courses_col.update_one({"_id": category}, {"$set": {field: price}}, upsert=True)
+
+
+async def set_course_offline(category: str, location: str):
+    from database import courses_col
+    await courses_col.update_one({"_id": category}, {"$set": {"type": "offline", "location": location}}, upsert=True)
+
+
+async def set_course_online(category: str):
+    from database import courses_col
+    await courses_col.update_one({"_id": category}, {"$set": {"type": "online", "location": None}}, upsert=True)
+
+
+# ---------------------------------------------------------------------------
+# Per-file premium pricing — a file can be marked premium with its own
+# price, purchasable on its own without a full category subscription.
+# ---------------------------------------------------------------------------
+
+async def set_file_premium(doc_id: str, price: int):
+    await documents_col.update_one({"doc_id": doc_id}, {"$set": {"is_premium": True, "file_price_inr": price}})
+
+
+async def remove_file_premium(doc_id: str):
+    await documents_col.update_one({"doc_id": doc_id}, {"$set": {"is_premium": False, "file_price_inr": None}})
+
+
+# ---------------------------------------------------------------------------
+# Full-course unlock (one payment, everything in that category incl.
+# premium files, effectively permanent) and single-file unlock (one
+# payment, access to exactly one premium file, no category-wide access).
+# Both reuse the existing category_access / users_col structures so the
+# rest of the access-check logic stays in one place.
+# ---------------------------------------------------------------------------
+
+FULL_COURSE_DAYS = 365 * 100  # "lifetime" — represented as a far-future expiry
+
+
+async def unlock_full_course(identifier: str, category: str):
+    return await unlock_user_category(identifier, category, days=FULL_COURSE_DAYS)
+
+
+async def unlock_file_for_user(identifier: str, doc_id: str):
+    query = {"email": identifier} if not identifier.isdigit() else {"telegram_user_id": int(identifier)}
+    set_doc = {"is_banned": False}
+    if identifier.isdigit():
+        set_doc["telegram_user_id"] = int(identifier)
+    else:
+        set_doc["email"] = identifier
+    await users_col.update_one(
+        query,
+        {
+            "$set": set_doc,
+            "$addToSet": {"unlocked_docs": doc_id},
+            "$setOnInsert": {"created_at": datetime.utcnow()},
+        },
+        upsert=True,
+    )
+
+
+async def is_user_active_for_doc(identifier: str, doc: dict) -> bool:
+    """
+    Non-premium docs: unchanged — needs category-wide access (monthly or
+    full-course, both stored the same way).
+    Premium docs: category-wide access ALSO works (monthly/full-course
+    unlocks every file, premium or not), OR the doc was bought individually.
+    """
+    if await is_user_active_for_category(identifier, doc["category"]):
+        return True
+    if not doc.get("is_premium"):
+        return False
+
+    user = await users_col.find_one(_lookup_query(identifier))
+    if not user or user.get("is_banned"):
+        return False
+    return doc["doc_id"] in (user.get("unlocked_docs") or [])
+
     
