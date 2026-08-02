@@ -210,6 +210,12 @@
       <button id="admin-close-btn" class="w-8 h-8 rounded-md hover:bg-[#F6F5F1] flex items-center justify-center text-xl">&times;</button>
     </div>
     <div class="p-5">
+      <h4 class="text-xs font-semibold uppercase tracking-wide text-[#8B93A7] mb-3">Appearance</h4>
+      <div id="mode-toggle" class="flex gap-2 mb-6">
+        <button id="mode-light-btn" data-mode="light" class="flex-1 h-10 rounded-md border border-[#DCD8CB] text-sm font-semibold">☀️ Light</button>
+        <button id="mode-dark-btn" data-mode="dark" class="flex-1 h-10 rounded-md border border-[#DCD8CB] text-sm font-semibold">🌙 Dark Neon</button>
+      </div>
+
       <h4 class="text-xs font-semibold uppercase tracking-wide text-[#8B93A7] mb-3">Theme Colour</h4>
       <div id="theme-swatches" class="grid grid-cols-6 gap-2.5 mb-6"></div>
 
@@ -245,6 +251,12 @@
         <a id="developer-telegram" href="#" target="_blank" class="text-xs font-mono text-[#0B1E3D] hover:text-[#F2B705] underline underline-offset-2">—</a>
       </div>
 
+      <a href="https://teacher-ai-studio.onrender.com/" target="_blank" rel="noopener"
+        class="flex items-center justify-between bg-[#0B1E3D] hover:bg-[#152a4d] rounded-lg px-4 py-3 mb-5 transition-colors group">
+        <span class="text-sm font-semibold text-white">✨ Best AI — Teacher AI Studio</span>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F2B705" stroke-width="2" class="group-hover:translate-x-0.5 transition-transform"><path d="M7 17L17 7M7 7h10v10"/></svg>
+      </a>
+
       <div class="border-t border-[#EAE7DD] pt-4">
         <input id="dev-search-input" type="text" placeholder="Raj" autocomplete="off" class="w-full h-10 rounded-md border border-[#DCD8CB] px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#F2B705]" />
         <div id="dev-id-result" class="hidden bg-[#F6F5F1] rounded-lg p-4 mt-3 text-sm"></div>
@@ -254,9 +266,8 @@
   </div>
 </div>
 
-<!-- ============================= TOAST ============================= -->
-<div id="toast" class="fixed bottom-5 left-1/2 -translate-x-1/2 z-[60] hidden bg-[#0B1E3D] text-white text-sm font-medium px-5 py-3 rounded-lg shadow-xl"></div>
-
-<script src="app.js"></script>
-</body>
-</html>
+<!-- ============================= EMAIL PROMPT MODAL (replaces native prompt) ============================= -->
+<div id="email-modal" class="fixed inset-0 z-[70] hidden bg-black/60 backdrop-blur-sm items-center justify-center p-4">
+  <div class="bg-[#0B1E3D] rounded-xl w-full max-w-sm shadow-2xl p-6">
+    <p class="text-xs text-[#8B93A7] mb-1">vidyalay-docs.onrender.com</p>
+    <h3 class="text-white font-display font-semibold text-base mb-4
