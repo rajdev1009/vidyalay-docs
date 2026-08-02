@@ -59,6 +59,12 @@ BRANDING = {
     "email": os.getenv("COACHING_EMAIL", "soptam55@gmail.com"),
     "upi_id": os.getenv("COACHING_UPI_ID", "vidyalaycoaching@upi"),
     "monthly_fee_inr": int(os.getenv("MONTHLY_FEE_INR", "99")),
+    # General coaching plans (separate from per-category pricing) — a
+    # month-by-month selector (1-12 months) shown on the homepage, for both
+    # the online and offline coaching programs.
+    "online_plan_fee_inr": int(os.getenv("ONLINE_PLAN_FEE_INR", "500")),
+    "offline_plan_fee_inr": int(os.getenv("OFFLINE_PLAN_FEE_INR", "500")),
+    "offline_location": os.getenv("OFFLINE_LOCATION", "Lumding — near Ram Thakur Mandir"),
     "disclaimer": (
         "For educational and reference purposes only. "
         "All materials are curated for Vidyalay Coaching Centre aspirants."
