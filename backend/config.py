@@ -29,8 +29,13 @@ ENV = os.getenv("ENV", "development")
 # access to ANY document, bypassing the subscription check. This value is
 # NEVER sent to the browser — the frontend only sends whatever the visitor
 # typed, and the comparison happens here, server-side, only.
-# Override in your .env / Render environment variables in production.
-ADMIN_ACCESS_CODE = os.getenv("ADMIN_ACCESS_CODE", "raj7578848529")
+#
+# Supports MULTIPLE codes at once — separate them with a comma, e.g.:
+#   ADMIN_ACCESS_CODE=raj7578848529,mysecondcode456
+# Any one of them will unlock admin access; useful if you want a second
+# code for another trusted device without replacing the first one.
+_admin_codes_raw = os.getenv("ADMIN_ACCESS_CODE", "raj7578848529")
+ADMIN_ACCESS_CODES = [c.strip() for c in _admin_codes_raw.split(",") if c.strip()]
 
 # ---------- Developer info (shown in the "Developer" panel on the site) ----------
 DEVELOPER_INFO = {
