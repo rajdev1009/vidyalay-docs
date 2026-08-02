@@ -22,8 +22,11 @@ from telegram_client import start_client, stop_client, stream_pdf_bytes
 from utils import (
     generate_unique_doc_id,
     is_user_active_for_category,
+    is_user_active_for_doc,
     unlock_user_category,
     record_user_activity,
+    get_broadcast_message,
+    get_course_info,
 )
 
 app = FastAPI(title="Vidyalay Coaching Centre Study Portal API")
@@ -62,13 +65,21 @@ async def get_branding():
 
 @app.get("/api/categories")
 async def get_categories():
-    return {"categories": CATEGORIES}
+    courses = [await get_course_info(c, BRANDING["monthly_fee_inr"]) for c in CATEGORIES]
+    return {"categories": courses}
 
 
 @app.get("/api/developer")
 async def get_developer_info():
     """Public info shown in the 'Developer' panel — no secrets here."""
     return DEVELOPER_INFO
+
+
+@app.get("/api/announcement")
+async def get_announcement():
+    """Site-wide banner text set via the bot's /broadcast command, or null if none."""
+    text = await get_broadcast_message()
+    return {"message": text}
 
 
 # ---------------------------------------------------------------------------
@@ -176,15 +187,20 @@ async def preview_document(
         raise HTTPException(404, "Document not found")
 
     is_admin = admin_code is not None and admin_code in ADMIN_ACCESS_CODES
-    active = is_admin or await is_user_active_for_category(identifier, doc["category"])
+    active = is_admin or await is_user_active_for_doc(identifier, doc)
     if not active:
+        course = await get_course_info(doc["category"], BRANDING["monthly_fee_inr"])
         raise HTTPException(
             402,
             detail={
-                "message": f"Payment required. Subscribe for '{doc['category']}' access and ask the owner to /unlock your account.",
+                "message": f"Payment required for '{doc['category']}' access.",
                 "category": doc["category"],
+                "doc_id": doc_id,
+                "is_premium": doc.get("is_premium", False),
+                "file_price_inr": doc.get("file_price_inr"),
+                "monthly_price_inr": course["monthly_price"],
+                "full_course_price_inr": course["full_course_price"],
                 "upi_id": BRANDING["upi_id"],
-                "monthly_fee_inr": BRANDING["monthly_fee_inr"],
             },
         )
 
@@ -219,15 +235,20 @@ async def download_document(
         raise HTTPException(404, "Document not found")
 
     is_admin = admin_code is not None and admin_code in ADMIN_ACCESS_CODES
-    active = is_admin or await is_user_active_for_category(identifier, doc["category"])
+    active = is_admin or await is_user_active_for_doc(identifier, doc)
     if not active:
+        course = await get_course_info(doc["category"], BRANDING["monthly_fee_inr"])
         raise HTTPException(
             402,
             detail={
-                "message": f"Payment required. Subscribe for '{doc['category']}' access and ask the owner to /unlock your account.",
+                "message": f"Payment required for '{doc['category']}' access.",
                 "category": doc["category"],
+                "doc_id": doc_id,
+                "is_premium": doc.get("is_premium", False),
+                "file_price_inr": doc.get("file_price_inr"),
+                "monthly_price_inr": course["monthly_price"],
+                "full_course_price_inr": course["full_course_price"],
                 "upi_id": BRANDING["upi_id"],
-                "monthly_fee_inr": BRANDING["monthly_fee_inr"],
             },
         )
 
@@ -278,7 +299,12 @@ async def create_order(order: OrderCreate):
 
 
 @app.get("/api/subscription-status")
-async def subscription_status(identifier: str, category: str):
+async def subscription_status(identifier: str, category: str, doc_id: str = Query(None)):
+    if doc_id:
+        doc = await documents_col.find_one({"doc_id": doc_id})
+        if doc:
+            active = await is_user_active_for_doc(identifier, doc)
+            return {"identifier": identifier, "category": category, "active": active}
     active = await is_user_active_for_category(identifier, category)
     return {"identifier": identifier, "category": category, "active": active}
 
