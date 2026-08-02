@@ -17,22 +17,39 @@ Commands:
     /delete <10-digit-id>     - remove a document
     /delete <email|unique-id> - remove a tracked user's record
     /list                     - list all documents
-    /categories               - show category numbers (needed for /unlock)
+    /categories               - show category numbers + current pricing/type
     /stats                    - usage statistics
     /Dashboard                - full user activity list: who searched/opened/
                                  downloaded how many times, their email and
                                  unique ID (for users without email)
-    /unlock <email|user_id> <category_no>  - grant/extend 30-day access to
-                                              ONE category after payment
+    /unlock <email|user_id> <category_no> [days]  - grant/extend MONTHLY
+                                              access to ONE category
+                                              (default 30 days, or pass a
+                                              custom number like 60/90)
+    /unlockfull <email|user_id> <category_no>     - grant FULL COURSE access
+                                              (permanent, incl. premium files)
+    /unlockfile <email|user_id> <10-digit-doc-id>  - grant access to ONE
+                                              premium file only
+    /setfullprice <category_no> <price>      - set the full-course price
+    /setmonthlyprice <category_no> <price>   - set the monthly price
+    /setoffline <category_no> <location>     - mark a category offline + set
+                                              where it's held
+    /setonline <category_no>                 - mark a category back online
+    /setfileprice <10-digit-doc-id> <price>  - mark one file premium with
+                                              its own single-file price
+    /removepremium <10-digit-doc-id>         - remove premium status from a
+                                              file (back to normal access)
     /ban <email>              - block a user
     /unban <email>            - unblock a user
-    /broadcast <message>      - message all registered users
+    /broadcast <message>      - set a site-wide banner shown at the very top
+                                 of the website (not a Telegram message)
+    /broadcast off            - clear the banner
 """
 import asyncio
 from datetime import datetime
 from telethon import events, Button
 
-from config import OWNER_CHAT_ID, CATEGORIES
+from config import OWNER_CHAT_ID, CATEGORIES, BRANDING
 from database import documents_col, users_col, orders_col
 from telegram_client import upload_pdf
 from utils import (
@@ -42,6 +59,16 @@ from utils import (
     unban_user,
     delete_user_by_identifier,
     get_all_users_summary,
+    set_broadcast_message,
+    clear_broadcast_message,
+    get_course_info,
+    set_course_price,
+    set_course_offline,
+    set_course_online,
+    set_file_premium,
+    remove_file_premium,
+    unlock_full_course,
+    unlock_file_for_user,
 )
 from bot_client import bot, start_bot_client
 
@@ -351,19 +378,53 @@ async def dashboard_command(event):
 @bot.on(events.NewMessage(pattern="/categories"))
 @_owner_only
 async def categories_command(event):
-    options = "\n".join(f"{i+1}. {c}" for i, c in enumerate(CATEGORIES))
-    await event.respond(f"📂 **Categories:**\n\n{options}\n\nUse the number with /unlock, e.g. `/unlock user@email.com 2`")
+    lines = ["📂 **Categories:**\n"]
+    for i, c in enumerate(CATEGORIES):
+        info = await get_course_info(c, BRANDING["monthly_fee_inr"])
+        loc = f" — 📍 {info['location']}" if info["type"] == "offline" and info["location"] else ""
+        full = f"₹{info['full_course_price']}" if info["full_course_price"] else "not set"
+        lines.append(
+            f"{i+1}. {c} ({info['type']}{loc})\n"
+            f"    Monthly: ₹{info['monthly_price']} | Full course: {full}"
+        )
+    lines.append("\nUse the number with /unlock, e.g. `/unlock user@email.com 2`")
+    await event.respond("\n".join(lines))
 
 
 # ---------------------------------------------------------------------------
-# /unlock <email or user-id> <category number>
-# Grants access to ONE category only — the user needs a separate /unlock
-# for each category they pay for.
+# /unlock <email or user-id> <category number> [days]
+# Grants MONTHLY-style access to ONE category — default 30 days, but you can
+# pass any custom number (e.g. 60 or 90) to match what the student paid for.
 # ---------------------------------------------------------------------------
 
-@bot.on(events.NewMessage(pattern=r"/unlock (\S+) (\d+)"))
+@bot.on(events.NewMessage(pattern=r"/unlock (\S+) (\d+)(?:\s+(\d+))?$"))
 @_owner_only
 async def unlock_command(event):
+    identifier = event.pattern_match.group(1)
+    cat_num = int(event.pattern_match.group(2))
+    days = int(event.pattern_match.group(3)) if event.pattern_match.group(3) else 30
+    try:
+        category = CATEGORIES[cat_num - 1]
+    except IndexError:
+        await event.respond("❌ Invalid category number. Send /categories to see the valid numbers.")
+        return
+
+    expiry = await unlock_user_category(identifier, category, days=days)
+    await event.respond(
+        f"🔓 Unlocked **{category}** access for `{identifier}` for {days} day(s), until {expiry.strftime('%Y-%m-%d')}\n\n"
+        f"(This does NOT unlock other categories — repeat /unlock with a different number for those.)"
+    )
+
+
+# ---------------------------------------------------------------------------
+# /unlockfull <email or user-id> <category number>
+# One payment, EVERYTHING in that category (including premium files),
+# effectively permanent.
+# ---------------------------------------------------------------------------
+
+@bot.on(events.NewMessage(pattern=r"/unlockfull (\S+) (\d+)"))
+@_owner_only
+async def unlock_full_command(event):
     identifier = event.pattern_match.group(1)
     cat_num = int(event.pattern_match.group(2))
     try:
@@ -372,11 +433,112 @@ async def unlock_command(event):
         await event.respond("❌ Invalid category number. Send /categories to see the valid numbers.")
         return
 
-    expiry = await unlock_user_category(identifier, category, days=30)
-    await event.respond(
-        f"🔓 Unlocked **{category}** access for `{identifier}` until {expiry.strftime('%Y-%m-%d')}\n\n"
-        f"(This does NOT unlock other categories — repeat /unlock with a different number for those.)"
-    )
+    await unlock_full_course(identifier, category)
+    await event.respond(f"🎓 Full course access granted to `{identifier}` for **{category}** — everything unlocked, including premium files.")
+
+
+# ---------------------------------------------------------------------------
+# /unlockfile <email or user-id> <10-digit-doc-id>
+# One payment, access to exactly ONE premium file — no category-wide access.
+# ---------------------------------------------------------------------------
+
+@bot.on(events.NewMessage(pattern=r"/unlockfile (\S+) (\d{10})"))
+@_owner_only
+async def unlock_file_command(event):
+    identifier = event.pattern_match.group(1)
+    doc_id = event.pattern_match.group(2)
+    doc = await documents_col.find_one({"doc_id": doc_id})
+    if not doc:
+        await event.respond(f"❌ No document found with ID {doc_id}")
+        return
+
+    await unlock_file_for_user(identifier, doc_id)
+    await event.respond(f"📄 File access granted to `{identifier}` for **{doc['title']}** (#{doc_id}) only.")
+
+
+# ---------------------------------------------------------------------------
+# Course pricing / type — edit anytime, effective immediately on the site.
+# ---------------------------------------------------------------------------
+
+@bot.on(events.NewMessage(pattern=r"/setfullprice (\d+) (\d+)"))
+@_owner_only
+async def set_full_price_command(event):
+    cat_num, price = int(event.pattern_match.group(1)), int(event.pattern_match.group(2))
+    try:
+        category = CATEGORIES[cat_num - 1]
+    except IndexError:
+        await event.respond("❌ Invalid category number. Send /categories to see the valid numbers.")
+        return
+    await set_course_price(category, "full", price)
+    await event.respond(f"💰 Full course price for **{category}** set to ₹{price}")
+
+
+@bot.on(events.NewMessage(pattern=r"/setmonthlyprice (\d+) (\d+)"))
+@_owner_only
+async def set_monthly_price_command(event):
+    cat_num, price = int(event.pattern_match.group(1)), int(event.pattern_match.group(2))
+    try:
+        category = CATEGORIES[cat_num - 1]
+    except IndexError:
+        await event.respond("❌ Invalid category number. Send /categories to see the valid numbers.")
+        return
+    await set_course_price(category, "monthly", price)
+    await event.respond(f"💰 Monthly price for **{category}** set to ₹{price}")
+
+
+@bot.on(events.NewMessage(pattern=r"/setoffline (\d+) (.+)"))
+@_owner_only
+async def set_offline_command(event):
+    cat_num = int(event.pattern_match.group(1))
+    location = event.pattern_match.group(2).strip()
+    try:
+        category = CATEGORIES[cat_num - 1]
+    except IndexError:
+        await event.respond("❌ Invalid category number. Send /categories to see the valid numbers.")
+        return
+    await set_course_offline(category, location)
+    await event.respond(f"📍 **{category}** marked OFFLINE at: {location}")
+
+
+@bot.on(events.NewMessage(pattern=r"/setonline (\d+)"))
+@_owner_only
+async def set_online_command(event):
+    cat_num = int(event.pattern_match.group(1))
+    try:
+        category = CATEGORIES[cat_num - 1]
+    except IndexError:
+        await event.respond("❌ Invalid category number. Send /categories to see the valid numbers.")
+        return
+    await set_course_online(category)
+    await event.respond(f"💻 **{category}** marked ONLINE")
+
+
+# ---------------------------------------------------------------------------
+# Per-file premium pricing
+# ---------------------------------------------------------------------------
+
+@bot.on(events.NewMessage(pattern=r"/setfileprice (\d{10}) (\d+)"))
+@_owner_only
+async def set_file_price_command(event):
+    doc_id, price = event.pattern_match.group(1), int(event.pattern_match.group(2))
+    doc = await documents_col.find_one({"doc_id": doc_id})
+    if not doc:
+        await event.respond(f"❌ No document found with ID {doc_id}")
+        return
+    await set_file_premium(doc_id, price)
+    await event.respond(f"⭐ **{doc['title']}** (#{doc_id}) marked PREMIUM — ₹{price} for single-file access.")
+
+
+@bot.on(events.NewMessage(pattern=r"/removepremium (\d{10})"))
+@_owner_only
+async def remove_premium_command(event):
+    doc_id = event.pattern_match.group(1)
+    doc = await documents_col.find_one({"doc_id": doc_id})
+    if not doc:
+        await event.respond(f"❌ No document found with ID {doc_id}")
+        return
+    await remove_file_premium(doc_id)
+    await event.respond(f"✅ **{doc['title']}** (#{doc_id}) is no longer premium — back to normal category access.")
 
 
 # ---------------------------------------------------------------------------
@@ -400,26 +562,27 @@ async def unban_command(event):
 
 
 # ---------------------------------------------------------------------------
-# /broadcast <message>
+# /broadcast <message>  — sets the site-wide banner shown above the header
+#                          on the website (not a Telegram message).
+# /broadcast off         — clears the banner.
 # ---------------------------------------------------------------------------
 
 @bot.on(events.NewMessage(pattern=r"/broadcast (.+)", func=lambda e: e.text.split()[0] == "/broadcast"))
 @_owner_only
 async def broadcast_command(event):
-    message = event.pattern_match.group(1)
-    cursor = users_col.find({"telegram_user_id": {"$exists": True}})
-    users = await cursor.to_list(length=None)
+    message = event.pattern_match.group(1).strip()
 
-    sent = 0
-    for user in users:
-        try:
-            await bot.send_message(user["telegram_user_id"], f"📢 {message}")
-            sent += 1
-            await asyncio.sleep(0.05)  # avoid flood limits
-        except Exception:
-            continue
+    if message.lower() in ("off", "clear", "none", "remove"):
+        await clear_broadcast_message()
+        await event.respond("📢 Website banner cleared.")
+        return
 
-    await event.respond(f"📢 Broadcast sent to {sent} user(s).")
+    await set_broadcast_message(message)
+    await event.respond(
+        f"📢 Website banner updated — this now shows at the top of the site for every visitor:\n\n"
+        f"\"{message}\"\n\n"
+        f"Send `/broadcast off` anytime to remove it."
+    )
 
 
 # ---------------------------------------------------------------------------
