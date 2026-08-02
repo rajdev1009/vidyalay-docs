@@ -16,6 +16,11 @@
 </head>
 <body class="bg-[#F6F5F1] text-[#0B1E3D] antialiased">
 
+<!-- ============================= ANNOUNCEMENT BANNER (set via /broadcast) ============================= -->
+<div id="announcement-bar" class="hidden bg-[#F2B705] text-[#0B1E3D] text-center font-bold text-sm md:text-base px-4 py-3">
+  <span id="announcement-text"></span>
+</div>
+
 <!-- ============================= NAVBAR ============================= -->
 <header class="sticky top-0 z-40 bg-[#0B1E3D]/95 backdrop-blur border-b border-[#1B3358]">
   <div class="max-w-7xl mx-auto px-5 md:px-8 h-16 flex items-center justify-between">
@@ -174,13 +179,38 @@
 
 <!-- ============================= PAYMENT MODAL ============================= -->
 <div id="payment-modal" class="fixed inset-0 z-50 hidden bg-black/60 backdrop-blur-sm items-center justify-center p-4">
-  <div class="bg-white rounded-xl w-full max-w-sm p-6 shadow-2xl text-center">
-    <h3 class="font-display font-semibold text-xl mb-1">Unlock Full Access</h3>
-    <p class="text-sm text-[#5A6478] mb-3">Subscribe for <span id="payment-fee" class="font-semibold">₹99</span>/month to download original, corruption-free PDFs.</p>
+  <div class="bg-white rounded-xl w-full max-w-sm p-6 shadow-2xl text-center max-h-[90vh] overflow-y-auto">
+    <h3 class="font-display font-semibold text-xl mb-1">Unlock Access</h3>
+    <p class="text-sm text-[#5A6478] mb-3">Choose how you'd like to unlock this material.</p>
 
     <div id="payment-selected-doc" class="hidden bg-[#FDF6E3] border border-[#F2B705]/40 rounded-lg px-4 py-2.5 mb-4 text-left">
       <p class="text-[10px] uppercase tracking-wide text-[#8B7A2F] font-semibold mb-0.5">Selected material</p>
       <p class="text-sm font-medium text-[#0B1E3D]" id="payment-selected-doc-title">—</p>
+    </div>
+
+    <!-- Plan options — populated/toggled by JS based on what's available for this item -->
+    <div id="payment-plan-options" class="space-y-2 mb-5 text-left">
+      <button data-plan="full" class="payment-plan-btn w-full border-2 border-[#EAE7DD] rounded-lg px-4 py-3 flex items-center justify-between transition-colors">
+        <span>
+          <span class="block text-sm font-semibold">🎓 Full Course</span>
+          <span class="block text-[11px] text-[#8B93A7]">Everything unlocked, incl. premium files</span>
+        </span>
+        <span class="font-display font-bold text-base" id="plan-full-price">—</span>
+      </button>
+      <button data-plan="file" class="payment-plan-btn hidden w-full border-2 border-[#EAE7DD] rounded-lg px-4 py-3 flex items-center justify-between transition-colors">
+        <span>
+          <span class="block text-sm font-semibold">📄 This File Only</span>
+          <span class="block text-[11px] text-[#8B93A7]">Access to just this one document</span>
+        </span>
+        <span class="font-display font-bold text-base" id="plan-file-price">—</span>
+      </button>
+      <button data-plan="monthly" class="payment-plan-btn w-full border-2 border-[#EAE7DD] rounded-lg px-4 py-3 flex items-center justify-between transition-colors">
+        <span>
+          <span class="block text-sm font-semibold">📅 Monthly Subscription</span>
+          <span class="block text-[11px] text-[#8B93A7]">This category, 30 days</span>
+        </span>
+        <span class="font-display font-bold text-base" id="plan-monthly-price">—</span>
+      </button>
     </div>
 
     <div class="bg-[#F6F5F1] rounded-lg p-5 mb-5">
