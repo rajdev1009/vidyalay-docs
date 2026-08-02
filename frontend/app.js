@@ -31,6 +31,47 @@ function getVisitorId() {
 }
 const visitorId = getVisitorId();
 
+// Custom styled email prompt — replaces the native browser prompt() dialog,
+// which can't be restyled (it's rendered by the browser itself, not the page).
+function askForEmail() {
+  return new Promise((resolve) => {
+    const modal = document.getElementById("email-modal");
+    const input = document.getElementById("email-modal-input");
+    const okBtn = document.getElementById("email-modal-ok");
+    const cancelBtn = document.getElementById("email-modal-cancel");
+
+    input.value = "";
+    modal.classList.remove("hidden");
+    modal.classList.add("flex");
+    setTimeout(() => input.focus(), 50);
+
+    function cleanup() {
+      modal.classList.add("hidden");
+      modal.classList.remove("flex");
+      okBtn.removeEventListener("click", onOk);
+      cancelBtn.removeEventListener("click", onCancel);
+      input.removeEventListener("keydown", onKeydown);
+    }
+    function onOk() {
+      const value = input.value.trim();
+      cleanup();
+      resolve(value);
+    }
+    function onCancel() {
+      cleanup();
+      resolve("");
+    }
+    function onKeydown(e) {
+      if (e.key === "Enter") onOk();
+      if (e.key === "Escape") onCancel();
+    }
+
+    okBtn.addEventListener("click", onOk);
+    cancelBtn.addEventListener("click", onCancel);
+    input.addEventListener("keydown", onKeydown);
+  });
+}
+
 // ---------------------------------------------------------------
 // Toast notifications
 // ---------------------------------------------------------------
@@ -250,7 +291,7 @@ async function openPreview(docId, title, category) {
   }
 
   if (!currentUserIdentifier) {
-    currentUserIdentifier = prompt("Enter your email to check subscription status:") || "";
+    currentUserIdentifier = (await askForEmail()) || "";
     if (!currentUserIdentifier) return;
     localStorage.setItem("vidyalay_identifier", currentUserIdentifier);
   }
@@ -336,7 +377,7 @@ async function attemptDownload(docId, title, category) {
   }
 
   if (!currentUserIdentifier) {
-    currentUserIdentifier = prompt("Enter your email to check subscription status:") || "";
+    currentUserIdentifier = (await askForEmail()) || "";
     if (!currentUserIdentifier) return;
     localStorage.setItem("vidyalay_identifier", currentUserIdentifier);
   }
@@ -525,6 +566,14 @@ function darkenHex(hex, amount = 0.15) {
   return "#" + [r, g, b].map(v => v.toString(16).padStart(2, "0")).join("");
 }
 
+function hexToRgba(hex, alpha = 0.5) {
+  const n = hex.replace("#", "");
+  const r = parseInt(n.substring(0, 2), 16);
+  const g = parseInt(n.substring(2, 4), 16);
+  const b = parseInt(n.substring(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
 function applyThemeColor(hex, save = true) {
   const dark = darkenHex(hex);
   let styleTag = document.getElementById("theme-override-style");
@@ -544,8 +593,62 @@ function applyThemeColor(hex, save = true) {
     .focus\\:ring-\\[\\#F2B705\\]:focus { --tw-ring-color: ${hex} !important; }
     .doc-card:hover, .category-card:hover { border-color: ${hex} !important; }
   `;
+  document.documentElement.style.setProperty("--accent-glow", hexToRgba(hex, 0.5));
   if (save) localStorage.setItem("vidyalay_theme_color", hex);
 }
+
+// ---------------------------------------------------------------
+// Dark Neon mode
+// ---------------------------------------------------------------
+function ensureDarkModeStyles() {
+  if (document.getElementById("dark-mode-override-style")) return;
+  const styleTag = document.createElement("style");
+  styleTag.id = "dark-mode-override-style";
+  styleTag.textContent = `
+    /* Surfaces */
+    .dark-mode .bg-\\[\\#F6F5F1\\] { background-color: #0b0b14 !important; }
+    .dark-mode .bg-white { background-color: #16161f !important; }
+    .dark-mode .bg-\\[\\#EAE7DD\\] { background-color: #0f0f18 !important; }
+    .dark-mode .bg-\\[\\#FDF6E3\\] { background-color: #241f0a !important; }
+
+    /* Borders */
+    .dark-mode .border-\\[\\#EAE7DD\\] { border-color: #2a2a3d !important; }
+    .dark-mode .border-\\[\\#DCD8CB\\] { border-color: #33334a !important; }
+    .dark-mode .border-\\[\\#0B1E3D\\] { border-color: #E9ECFF !important; }
+
+    /* Body / surface text -> white, so nothing goes dark-on-dark */
+    .dark-mode .text-\\[\\#0B1E3D\\] { color: #F5F7FF !important; }
+    .dark-mode .text-\\[\\#5A6478\\] { color: #B7C0DC !important; }
+    .dark-mode .text-\\[\\#8B93A7\\] { color: #9BA4C7 !important; }
+    .dark-mode .text-\\[\\#8B7A2F\\] { color: #E8CE7A !important; }
+    .dark-mode .placeholder\\:text-\\[\\#8B93A7\\]::placeholder { color: #6E7796 !important; }
+
+    /* Exception: text sitting ON the yellow accent background must stay
+       dark navy for readability — this rule is more specific so it wins
+       over the broad white-text rule above. */
+    .dark-mode .bg-\\[\\#F2B705\\].text-\\[\\#0B1E3D\\] { color: #0B1E3D !important; }
+
+    /* Neon glow on accent-coloured buttons */
+    .dark-mode .bg-\\[\\#F2B705\\] { box-shadow: 0 0 18px 0 var(--accent-glow, rgba(242,183,5,0.45)); }
+  `;
+  document.head.appendChild(styleTag);
+}
+
+function applyDarkMode(enabled, save = true) {
+  ensureDarkModeStyles();
+  document.documentElement.classList.toggle("dark-mode", enabled);
+  if (save) localStorage.setItem("vidyalay_dark_mode", enabled ? "1" : "0");
+
+  const lightBtn = document.getElementById("mode-light-btn");
+  const darkBtn = document.getElementById("mode-dark-btn");
+  if (lightBtn && darkBtn) {
+    lightBtn.className = `flex-1 h-10 rounded-md text-sm font-semibold border ${!enabled ? "bg-[#0B1E3D] text-white border-[#0B1E3D]" : "border-[#DCD8CB] text-[#0B1E3D]"}`;
+    darkBtn.className = `flex-1 h-10 rounded-md text-sm font-semibold border ${enabled ? "bg-[#0B1E3D] text-white border-[#0B1E3D]" : "border-[#DCD8CB] text-[#0B1E3D]"}`;
+  }
+}
+
+document.getElementById("mode-light-btn").addEventListener("click", () => applyDarkMode(false));
+document.getElementById("mode-dark-btn").addEventListener("click", () => applyDarkMode(true));
 
 function renderThemeSwatches() {
   const container = document.getElementById("theme-swatches");
@@ -726,4 +829,5 @@ loadCategories();
 loadStats();
 loadRecent();
 applyThemeColor(localStorage.getItem("vidyalay_theme_color") || THEME_COLORS[0].hex, false);
+applyDarkMode(localStorage.getItem("vidyalay_dark_mode") === "1", false);
   
