@@ -12,6 +12,8 @@ documents_col = db["documents"]        # study material metadata
 users_col = db["users"]                # registered users / subscribers
 orders_col = db["orders"]              # payment/order logs
 counters_col = db["counters"]          # for aggregate stats (downloads, etc.)
+settings_col = db["settings"]          # single-doc site settings (e.g. banner)
+courses_col = db["courses"]            # per-category pricing, online/offline, location
 
 
 async def ensure_indexes():
@@ -23,3 +25,4 @@ async def ensure_indexes():
     await users_col.create_index("telegram_user_id", unique=True, sparse=True)
     await users_col.create_index("unique_id", unique=True, sparse=True)
     await orders_col.create_index("created_at")
+    
