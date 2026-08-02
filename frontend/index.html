@@ -12,7 +12,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-<link rel="stylesheet" href="style.css" />
+<link rel="stylesheet" href="style.css?v=3" />
 </head>
 <body class="bg-[#F6F5F1] text-[#0B1E3D] antialiased">
 
@@ -267,7 +267,23 @@
 </div>
 
 <!-- ============================= EMAIL PROMPT MODAL (replaces native prompt) ============================= -->
+<!-- ============================= EMAIL PROMPT MODAL (replaces native prompt) ============================= -->
 <div id="email-modal" class="fixed inset-0 z-[70] hidden bg-black/60 backdrop-blur-sm items-center justify-center p-4">
   <div class="bg-[#0B1E3D] rounded-xl w-full max-w-sm shadow-2xl p-6">
     <p class="text-xs text-[#8B93A7] mb-1">vidyalay-docs.onrender.com</p>
-    <h3 class="text-white font-display font-semibold text-base mb-4
+    <h3 class="text-white font-display font-semibold text-base mb-4">Enter your email to check subscription status</h3>
+    <input id="email-modal-input" type="email" placeholder="you@example.com" autocomplete="email"
+      class="w-full h-11 rounded-md bg-white/10 border border-white/20 text-white placeholder-white/40 px-3 text-sm mb-5 focus:outline-none focus:ring-2 focus:ring-[#F2B705]" />
+    <div class="flex justify-end gap-4">
+      <button id="email-modal-cancel" class="text-[#F2B705] text-sm font-semibold hover:opacity-80">Cancel</button>
+      <button id="email-modal-ok" class="text-[#F2B705] text-sm font-semibold hover:opacity-80">OK</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================= TOAST ============================= -->
+<div id="toast" class="fixed bottom-5 left-1/2 -translate-x-1/2 z-[60] hidden bg-[#0B1E3D] text-white text-sm font-medium px-5 py-3 rounded-lg shadow-xl"></div>
+
+<script src="app.js?v=3"></script>
+</body>
+</html>
