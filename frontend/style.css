@@ -34,6 +34,28 @@ body { font-family: 'Inter', system-ui, sans-serif; }
   100% { background-position: 0 50%; }
 }
 
+/* ---------------------------------------------------------------
+   Dark Neon mode — toggled via the .dark-mode class on <html>.
+   Cards live here (not Tailwind bracket classes) so they get their
+   own dedicated override instead of a generated one.
+--------------------------------------------------------------- */
+.dark-mode .doc-card,
+.dark-mode .category-card {
+  background: #16161f;
+  border-color: #2a2a3d;
+}
+.dark-mode .doc-card:hover,
+.dark-mode .category-card:hover {
+  box-shadow: 0 0 22px -4px var(--accent-glow, rgba(242, 183, 5, 0.5));
+}
+.dark-mode .skeleton {
+  background: linear-gradient(90deg, #1c1c2a 25%, #23233a 37%, #1c1c2a 63%);
+  background-size: 400% 100%;
+}
+.dark-mode body {
+  color-scheme: dark;
+}
+
 /* Toast animation */
 #toast.show {
   animation: toast-in 0.25s ease forwards;
