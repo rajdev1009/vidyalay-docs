@@ -2,6 +2,7 @@
 Small shared helpers.
 """
 import random
+import re
 from datetime import datetime, timedelta
 from database import documents_col, users_col
 
@@ -15,8 +16,31 @@ async def generate_unique_doc_id() -> str:
             return candidate
 
 
+def _normalize_identifier(identifier: str) -> str:
+    """
+    Emails are case-insensitive in practice (John@Gmail.com and
+    john@gmail.com are the same inbox), but MongoDB string matching is
+    case-sensitive — without this, the same person typing their email
+    slightly differently (or a phone auto-capitalising it) creates a
+    second, separate, un-unlocked user record. Telegram numeric IDs are
+    left untouched.
+    """
+    identifier = (identifier or "").strip()
+    return identifier.lower() if "@" in identifier else identifier
+
+
+def _email_query(email: str) -> dict:
+    """
+    Case-insensitive exact match for an email field — matches regardless of
+    how it was originally saved (covers records created before this fix
+    too, no migration needed).
+    """
+    return {"$regex": f"^{re.escape(email)}$", "$options": "i"}
+
+
 def _lookup_query(identifier: str) -> dict:
-    query = {"$or": [{"email": identifier}]}
+    identifier = _normalize_identifier(identifier)
+    query = {"$or": [{"email": _email_query(identifier)}]}
     if identifier.isdigit():
         query["$or"].append({"telegram_user_id": int(identifier)})
     return query
@@ -43,9 +67,10 @@ async def unlock_user_category(identifier: str, category: str, days: int = 30):
     Grant/extend subscription access to ONE category only. Creates the user
     if needed. Existing access to other categories is untouched.
     """
-    query = {"email": identifier} if not identifier.isdigit() else {"telegram_user_id": int(identifier)}
+    identifier = _normalize_identifier(identifier)
+    find_query = {"email": _email_query(identifier)} if not identifier.isdigit() else {"telegram_user_id": int(identifier)}
 
-    existing = await users_col.find_one(query)
+    existing = await users_col.find_one(find_query)
     current_expiry = (existing.get("category_access") or {}).get(category) if existing else None
 
     new_expiry = datetime.utcnow() + timedelta(days=days)
@@ -56,10 +81,10 @@ async def unlock_user_category(identifier: str, category: str, days: int = 30):
     if identifier.isdigit():
         set_doc["telegram_user_id"] = int(identifier)
     else:
-        set_doc["email"] = identifier
+        set_doc["email"] = identifier  # always written normalized (lowercase)
 
     await users_col.update_one(
-        query,
+        find_query,
         {"$set": set_doc, "$setOnInsert": {"created_at": datetime.utcnow()}},
         upsert=True,
     )
@@ -67,11 +92,13 @@ async def unlock_user_category(identifier: str, category: str, days: int = 30):
 
 
 async def ban_user(email: str):
-    await users_col.update_one({"email": email}, {"$set": {"is_banned": True}}, upsert=True)
+    email = _normalize_identifier(email)
+    await users_col.update_one({"email": _email_query(email)}, {"$set": {"is_banned": True, "email": email}}, upsert=True)
 
 
 async def unban_user(email: str):
-    await users_col.update_one({"email": email}, {"$set": {"is_banned": False}})
+    email = _normalize_identifier(email)
+    await users_col.update_one({"email": _email_query(email)}, {"$set": {"is_banned": False}})
 
 
 # ---------------------------------------------------------------------------
@@ -86,7 +113,7 @@ def _tracking_query(visitor_id: str = None, email: str = None) -> dict:
     """
     ors = []
     if email:
-        ors.append({"email": email})
+        ors.append({"email": _email_query(email)})
     if visitor_id:
         ors.append({"unique_id": visitor_id})
     return {"$or": ors} if ors else {"_id": None}  # matches nothing if neither given
@@ -100,6 +127,7 @@ async def record_user_activity(visitor_id: str = None, email: str = None, kind: 
     """
     if not visitor_id and not email:
         return
+    email = _normalize_identifier(email) if email else None
 
     counter_field = {
         "search": "search_count",
@@ -117,7 +145,7 @@ async def record_user_activity(visitor_id: str = None, email: str = None, kind: 
         set_doc["unique_id"] = visitor_id
 
     await users_col.update_one(
-        query if existing else {"unique_id": visitor_id} if visitor_id else {"email": email},
+        query if existing else {"unique_id": visitor_id} if visitor_id else {"email": _email_query(email)},
         {
             "$set": set_doc,
             "$inc": {counter_field: 1},
@@ -129,7 +157,8 @@ async def record_user_activity(visitor_id: str = None, email: str = None, kind: 
 
 async def delete_user_by_identifier(identifier: str) -> bool:
     """Deletes a user's record by email OR their unique_id (whichever matches)."""
-    query = {"$or": [{"email": identifier}, {"unique_id": identifier}]}
+    identifier = _normalize_identifier(identifier)
+    query = {"$or": [{"email": _email_query(identifier)}, {"unique_id": identifier}]}
     if identifier.isdigit():
         query["$or"].append({"telegram_user_id": int(identifier)})
     result = await users_col.delete_one(query)
@@ -231,7 +260,8 @@ async def unlock_full_course(identifier: str, category: str):
 
 
 async def unlock_file_for_user(identifier: str, doc_id: str):
-    query = {"email": identifier} if not identifier.isdigit() else {"telegram_user_id": int(identifier)}
+    identifier = _normalize_identifier(identifier)
+    query = {"email": _email_query(identifier)} if not identifier.isdigit() else {"telegram_user_id": int(identifier)}
     set_doc = {"is_banned": False}
     if identifier.isdigit():
         set_doc["telegram_user_id"] = int(identifier)
@@ -265,4 +295,3 @@ async def is_user_active_for_doc(identifier: str, doc: dict) -> bool:
         return False
     return doc["doc_id"] in (user.get("unlocked_docs") or [])
 
-    
