@@ -15,7 +15,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import StreamingResponse, FileResponse
 import io
 
-from config import BRANDING, CATEGORIES, BASE_URL, ADMIN_ACCESS_CODE, DEVELOPER_INFO
+from config import BRANDING, CATEGORIES, BASE_URL, ADMIN_ACCESS_CODES, DEVELOPER_INFO
 from database import documents_col, users_col, orders_col, ensure_indexes
 from models import DocumentCreate, OrderCreate, UnlockRequest
 from telegram_client import start_client, stop_client, stream_pdf_bytes
@@ -78,12 +78,12 @@ async def get_developer_info():
 
 @app.get("/api/admin/verify")
 async def admin_verify(code: str = Query(...)):
-    return {"valid": code == ADMIN_ACCESS_CODE}
+    return {"valid": code in ADMIN_ACCESS_CODES}
 
 
 @app.get("/api/admin/lookup/{doc_id}")
 async def admin_lookup(doc_id: str, code: str = Query(...)):
-    if code != ADMIN_ACCESS_CODE:
+    if code not in ADMIN_ACCESS_CODES:
         raise HTTPException(403, "Invalid code")
     doc = await documents_col.find_one({"doc_id": doc_id})
     if not doc:
@@ -175,7 +175,7 @@ async def preview_document(
     if not doc:
         raise HTTPException(404, "Document not found")
 
-    is_admin = admin_code is not None and admin_code == ADMIN_ACCESS_CODE
+    is_admin = admin_code is not None and admin_code in ADMIN_ACCESS_CODES
     active = is_admin or await is_user_active_for_category(identifier, doc["category"])
     if not active:
         raise HTTPException(
@@ -218,7 +218,7 @@ async def download_document(
     if not doc:
         raise HTTPException(404, "Document not found")
 
-    is_admin = admin_code is not None and admin_code == ADMIN_ACCESS_CODE
+    is_admin = admin_code is not None and admin_code in ADMIN_ACCESS_CODES
     active = is_admin or await is_user_active_for_category(identifier, doc["category"])
     if not active:
         raise HTTPException(
@@ -320,7 +320,7 @@ async def admin_wipe_all_documents(code: str = Query(...)):
     categories, IDs, download counts). The actual files stay untouched in
     the Telegram storage channel — this only clears the site's listing.
     """
-    if code != ADMIN_ACCESS_CODE:
+    if code not in ADMIN_ACCESS_CODES:
         raise HTTPException(403, "Invalid code")
     result = await documents_col.delete_many({})
     return {"deleted_count": result.deleted_count}
