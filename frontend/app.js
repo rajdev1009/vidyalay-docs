@@ -11,6 +11,8 @@ let currentUserIdentifier = localStorage.getItem("vidyalay_identifier") || "";
 let currentPreviewDocId = null;
 let currentPreviewTitle = null;
 let currentPreviewCategory = null;
+let currentPreviewIsPremium = false;
+let currentPreviewFilePrice = "";
 let ownerWhatsappNumber = "917099451692"; // overwritten by loadBranding()
 
 // Admin unlock code is kept ONLY in this tab's memory for this session —
@@ -104,7 +106,6 @@ async function loadBranding() {
     document.getElementById("footer-phone").href = `tel:${b.phone.replace(/\s/g, "")}`;
     // WhatsApp deep links need digits only, with country code, no + or spaces
     ownerWhatsappNumber = (b.phone || "").replace(/[^\d]/g, "");
-    document.getElementById("payment-fee").textContent = `₹${b.monthly_fee_inr}`;
     paymentMonthlyFee = b.monthly_fee_inr || paymentMonthlyFee;
     document.getElementById("upi-id-text").textContent = `UPI ID: ${b.upi_id}`;
   } catch (e) {
@@ -121,10 +122,14 @@ const CATEGORY_ICONS = {
   "General Study Materials": "📚",
 };
 
+let allCourses = []; // cached course info (pricing/type/location) after loadCategories()
+
 async function loadCategories() {
   try {
     const res = await fetch(`${API_BASE}/api/categories`);
     const data = await res.json();
+    allCourses = data.categories; // [{category, type, location, full_course_price, monthly_price}, ...]
+
     const grid = document.getElementById("category-grid");
     const footerList = document.getElementById("footer-categories");
     const profileSelect = document.getElementById("profile-category");
@@ -132,28 +137,36 @@ async function loadCategories() {
     footerList.innerHTML = "";
     if (profileSelect) {
       profileSelect.innerHTML = `<option value="">Preferred category (optional)</option>`;
-      data.categories.forEach(cat => {
+      allCourses.forEach(c => {
         const opt = document.createElement("option");
-        opt.value = cat;
-        opt.textContent = cat;
+        opt.value = c.category;
+        opt.textContent = c.category;
         profileSelect.appendChild(opt);
       });
       const savedProfile = JSON.parse(localStorage.getItem("vidyalay_profile") || "{}");
       if (savedProfile.category) profileSelect.value = savedProfile.category;
     }
-    data.categories.forEach(cat => {
+    allCourses.forEach(c => {
       const card = document.createElement("button");
       card.className = "category-card p-5 text-left";
+      const locationBadge = c.type === "offline" && c.location
+        ? `<span class="inline-block text-[10px] font-semibold bg-[#F6F5F1] text-[#5A6478] px-2 py-0.5 rounded-full mb-1.5">📍 ${c.location}</span>`
+        : `<span class="inline-block text-[10px] font-semibold bg-[#F6F5F1] text-[#5A6478] px-2 py-0.5 rounded-full mb-1.5">💻 Online</span>`;
+      const priceLine = c.full_course_price
+        ? `Monthly ₹${c.monthly_price} · Full ₹${c.full_course_price}`
+        : `Monthly ₹${c.monthly_price}`;
       card.innerHTML = `
-        <div class="text-2xl mb-2">${CATEGORY_ICONS[cat] || "📄"}</div>
-        <div class="font-semibold text-sm md:text-base">${cat}</div>
+        <div class="text-2xl mb-2">${CATEGORY_ICONS[c.category] || "📄"}</div>
+        <div class="font-semibold text-sm md:text-base mb-1">${c.category}</div>
+        ${locationBadge}
+        <div class="text-[11px] text-[#8B93A7]">${priceLine}</div>
       `;
-      card.addEventListener("click", () => runSearch("", cat));
+      card.addEventListener("click", () => runSearch("", c.category));
       grid.appendChild(card);
 
       const li = document.createElement("li");
-      li.innerHTML = `<button class="hover:text-[#F2B705]">${cat}</button>`;
-      li.querySelector("button").addEventListener("click", () => runSearch("", cat));
+      li.innerHTML = `<button class="hover:text-[#F2B705]">${c.category}</button>`;
+      li.querySelector("button").addEventListener("click", () => runSearch("", c.category));
       footerList.appendChild(li);
     });
   } catch (e) {
@@ -175,16 +188,36 @@ async function loadStats() {
   }
 }
 
+async function loadAnnouncement() {
+  try {
+    const res = await fetch(`${API_BASE}/api/announcement`);
+    const data = await res.json();
+    const bar = document.getElementById("announcement-bar");
+    if (data.message) {
+      document.getElementById("announcement-text").textContent = data.message;
+      bar.classList.remove("hidden");
+    } else {
+      bar.classList.add("hidden");
+    }
+  } catch (e) {
+    console.error("announcement load failed", e);
+  }
+}
+
 // ---------------------------------------------------------------
 // Document card rendering
 // ---------------------------------------------------------------
 function docCardHTML(doc) {
   const uploadDate = new Date(doc.upload_date).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+  const premiumBadge = doc.is_premium
+    ? `<span class="text-[10px] font-bold bg-[#F2B705] text-[#0B1E3D] px-2 py-1 rounded">⭐ Premium · ₹${doc.file_price_inr}</span>`
+    : "";
   return `
     <div class="doc-card p-5 flex flex-col">
-      <div class="flex items-start justify-between mb-2">
+      <div class="flex items-start justify-between mb-2 gap-2">
         <span class="text-[10px] font-mono uppercase tracking-wide bg-[#F6F5F1] text-[#5A6478] px-2 py-1 rounded">${doc.category}</span>
-        <span class="text-[10px] font-mono text-[#B7BECF]">#${doc.doc_id}</span>
+        ${premiumBadge}
+        <span class="text-[10px] font-mono text-[#B7BECF] ml-auto">#${doc.doc_id}</span>
       </div>
       <h3 class="font-display font-semibold text-base leading-snug mb-1.5">${doc.title}</h3>
       <p class="text-xs text-[#5A6478] leading-relaxed mb-3 line-clamp-2">${doc.description || ""}</p>
@@ -196,8 +229,8 @@ function docCardHTML(doc) {
         <span>${doc.download_count || 0} downloads</span>
       </div>
       <div class="mt-auto flex gap-2">
-        <button class="preview-btn flex-1 h-9 rounded-md border border-[#0B1E3D] text-[#0B1E3D] text-xs font-semibold hover:bg-[#0B1E3D] hover:text-white transition-colors" data-id="${doc.doc_id}" data-title="${doc.title}" data-category="${doc.category}">Preview</button>
-        <button class="download-btn flex-1 h-9 rounded-md bg-[#F2B705] hover:bg-[#e0a900] text-[#0B1E3D] text-xs font-semibold transition-colors" data-id="${doc.doc_id}" data-title="${doc.title}" data-category="${doc.category}">Download</button>
+        <button class="preview-btn flex-1 h-9 rounded-md border border-[#0B1E3D] text-[#0B1E3D] text-xs font-semibold hover:bg-[#0B1E3D] hover:text-white transition-colors" data-id="${doc.doc_id}" data-title="${doc.title}" data-category="${doc.category}" data-premium="${!!doc.is_premium}" data-fileprice="${doc.file_price_inr || ""}">Preview</button>
+        <button class="download-btn flex-1 h-9 rounded-md bg-[#F2B705] hover:bg-[#e0a900] text-[#0B1E3D] text-xs font-semibold transition-colors" data-id="${doc.doc_id}" data-title="${doc.title}" data-category="${doc.category}" data-premium="${!!doc.is_premium}" data-fileprice="${doc.file_price_inr || ""}">Download</button>
       </div>
     </div>
   `;
@@ -216,10 +249,10 @@ function skeletonCardHTML() {
 
 function attachCardHandlers(container) {
   container.querySelectorAll(".preview-btn").forEach(btn => {
-    btn.addEventListener("click", () => openPreview(btn.dataset.id, btn.dataset.title, btn.dataset.category));
+    btn.addEventListener("click", () => openPreview(btn.dataset.id, btn.dataset.title, btn.dataset.category, btn.dataset.premium === "true", btn.dataset.fileprice));
   });
   container.querySelectorAll(".download-btn").forEach(btn => {
-    btn.addEventListener("click", () => attemptDownload(btn.dataset.id, btn.dataset.title, btn.dataset.category));
+    btn.addEventListener("click", () => attemptDownload(btn.dataset.id, btn.dataset.title, btn.dataset.category, btn.dataset.premium === "true", btn.dataset.fileprice));
   });
 }
 
@@ -284,7 +317,7 @@ async function loadRecent() {
 // ---------------------------------------------------------------
 // PDF Preview (PDF.js)
 // ---------------------------------------------------------------
-async function openPreview(docId, title, category) {
+async function openPreview(docId, title, category, isPremium = false, filePrice = "") {
   if (adminCode) {
     // Owner is unlocked — skip identifier prompt and subscription check entirely.
     return renderPreview(docId, title);
@@ -296,12 +329,12 @@ async function openPreview(docId, title, category) {
     localStorage.setItem("vidyalay_identifier", currentUserIdentifier);
   }
 
-  // Preview is payment-gated per category, same as download — check first.
+  // Preview is payment-gated per category (or per-file if premium) — check first.
   try {
-    const statusRes = await fetch(`${API_BASE}/api/subscription-status?identifier=${encodeURIComponent(currentUserIdentifier)}&category=${encodeURIComponent(category)}`);
+    const statusRes = await fetch(`${API_BASE}/api/subscription-status?identifier=${encodeURIComponent(currentUserIdentifier)}&category=${encodeURIComponent(category)}&doc_id=${encodeURIComponent(docId)}`);
     const status = await statusRes.json();
     if (!status.active) {
-      openPaymentModal(docId, title, category);
+      openPaymentModal(docId, title, category, isPremium, filePrice);
       return;
     }
   } catch (e) {
@@ -310,13 +343,15 @@ async function openPreview(docId, title, category) {
     return;
   }
 
-  await renderPreview(docId, title, category);
+  await renderPreview(docId, title, category, isPremium, filePrice);
 }
 
-async function renderPreview(docId, title, category) {
+async function renderPreview(docId, title, category, isPremium = false, filePrice = "") {
   currentPreviewDocId = docId;
   currentPreviewTitle = title || "";
   currentPreviewCategory = category || "";
+  currentPreviewIsPremium = isPremium;
+  currentPreviewFilePrice = filePrice;
   const modal = document.getElementById("preview-modal");
   const canvas = document.getElementById("pdf-canvas");
   const loading = document.getElementById("preview-loading");
@@ -355,13 +390,13 @@ document.getElementById("preview-close-btn").addEventListener("click", () => {
 });
 
 document.getElementById("preview-download-btn").addEventListener("click", () => {
-  if (currentPreviewDocId) attemptDownload(currentPreviewDocId, currentPreviewTitle, currentPreviewCategory);
+  if (currentPreviewDocId) attemptDownload(currentPreviewDocId, currentPreviewTitle, currentPreviewCategory, currentPreviewIsPremium, currentPreviewFilePrice);
 });
 
 // ---------------------------------------------------------------
 // Download flow (payment-gated)
 // ---------------------------------------------------------------
-async function attemptDownload(docId, title, category) {
+async function attemptDownload(docId, title, category, isPremium = false, filePrice = "") {
   if (adminCode) {
     // Owner is unlocked — free download, no identifier or subscription needed.
     showToast("Preparing your download...");
@@ -383,11 +418,11 @@ async function attemptDownload(docId, title, category) {
   }
 
   try {
-    const statusRes = await fetch(`${API_BASE}/api/subscription-status?identifier=${encodeURIComponent(currentUserIdentifier)}&category=${encodeURIComponent(category)}`);
+    const statusRes = await fetch(`${API_BASE}/api/subscription-status?identifier=${encodeURIComponent(currentUserIdentifier)}&category=${encodeURIComponent(category)}&doc_id=${encodeURIComponent(docId)}`);
     const status = await statusRes.json();
 
     if (!status.active) {
-      openPaymentModal(docId, title, category);
+      openPaymentModal(docId, title, category, isPremium, filePrice);
       return;
     }
 
@@ -413,11 +448,20 @@ let paymentDocId = null;
 let paymentDocTitle = null;
 let paymentDocCategory = null;
 let paymentMonthlyFee = 99;
+let paymentSelectedPlan = "monthly"; // "full" | "file" | "monthly"
+let paymentFullPrice = null;
+let paymentFilePrice = null;
 
-function openPaymentModal(docId, title, category) {
+function openPaymentModal(docId, title, category, isPremium = false, filePrice = "") {
   paymentDocId = docId || null;
   paymentDocTitle = title || null;
   paymentDocCategory = category || null;
+
+  const course = allCourses.find(c => c.category === category) || {};
+  paymentFullPrice = course.full_course_price || null;
+  paymentFilePrice = isPremium && filePrice ? Number(filePrice) : null;
+  paymentMonthlyFee = course.monthly_price || paymentMonthlyFee;
+
   document.getElementById("payment-email-input").value = currentUserIdentifier || "";
 
   const selectedBox = document.getElementById("payment-selected-doc");
@@ -429,10 +473,47 @@ function openPaymentModal(docId, title, category) {
     selectedBox.classList.add("hidden");
   }
 
+  // Full Course option
+  const fullBtn = document.getElementById("plan-full-price").closest(".payment-plan-btn");
+  if (paymentFullPrice) {
+    fullBtn.classList.remove("hidden");
+    document.getElementById("plan-full-price").textContent = `₹${paymentFullPrice}`;
+  } else {
+    fullBtn.classList.add("hidden");
+  }
+
+  // Single File option — only for a premium file with its own price
+  const fileBtn = document.getElementById("plan-file-price").closest(".payment-plan-btn");
+  if (paymentFilePrice) {
+    fileBtn.classList.remove("hidden");
+    document.getElementById("plan-file-price").textContent = `₹${paymentFilePrice}`;
+  } else {
+    fileBtn.classList.add("hidden");
+  }
+
+  // Monthly is always available
+  document.getElementById("plan-monthly-price").textContent = `₹${paymentMonthlyFee}`;
+
+  // Default selection: file if this is a premium file, else monthly
+  selectPaymentPlan(paymentFilePrice ? "file" : "monthly");
+
   const modal = document.getElementById("payment-modal");
   modal.classList.remove("hidden");
   modal.classList.add("flex");
 }
+
+function selectPaymentPlan(plan) {
+  paymentSelectedPlan = plan;
+  document.querySelectorAll(".payment-plan-btn").forEach(btn => {
+    const active = btn.dataset.plan === plan;
+    btn.classList.toggle("border-[#F2B705]", active);
+    btn.classList.toggle("bg-[#FDF6E3]", active);
+    btn.classList.toggle("border-[#EAE7DD]", !active);
+  });
+}
+document.querySelectorAll(".payment-plan-btn").forEach(btn => {
+  btn.addEventListener("click", () => selectPaymentPlan(btn.dataset.plan));
+});
 
 document.getElementById("payment-close-btn").addEventListener("click", closePaymentModal);
 function closePaymentModal() {
@@ -440,11 +521,23 @@ function closePaymentModal() {
   document.getElementById("payment-modal").classList.remove("flex");
 }
 
+function currentPlanAmount() {
+  if (paymentSelectedPlan === "full") return paymentFullPrice || paymentMonthlyFee;
+  if (paymentSelectedPlan === "file") return paymentFilePrice || paymentMonthlyFee;
+  return paymentMonthlyFee;
+}
+
+function currentPlanLabel() {
+  if (paymentSelectedPlan === "full") return "Full Course (permanent, incl. premium files)";
+  if (paymentSelectedPlan === "file") return "Single File Only";
+  return "Monthly Subscription (30 days)";
+}
+
 // "Continue on WhatsApp" — logs the order intent, then opens a WhatsApp chat
 // with the owner's number and a pre-filled English message describing the
-// selected document and the amount. WhatsApp links can't attach an image
-// automatically, so the message asks the user to attach their payment
-// screenshot themselves before sending.
+// selected plan, document, and the amount. WhatsApp links can't attach an
+// image automatically, so the message asks the user to attach their
+// payment screenshot themselves before sending.
 document.getElementById("payment-continue-btn").addEventListener("click", async () => {
   const email = document.getElementById("payment-email-input").value.trim();
   if (!email) {
@@ -454,12 +547,21 @@ document.getElementById("payment-continue-btn").addEventListener("click", async 
   currentUserIdentifier = email;
   localStorage.setItem("vidyalay_identifier", email);
 
+  const amount = currentPlanAmount();
+  const planLabel = currentPlanLabel();
+
   // Log the order intent in the background so the owner also sees it via /stats.
   try {
     await fetch(`${API_BASE}/api/orders`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, doc_id: paymentDocId, category: paymentDocCategory, amount_inr: paymentMonthlyFee }),
+      body: JSON.stringify({
+        email,
+        doc_id: paymentDocId,
+        category: paymentDocCategory,
+        amount_inr: amount,
+        note: `Plan: ${planLabel}`,
+      }),
     });
   } catch (e) {
     console.error("order logging failed", e);
@@ -468,12 +570,13 @@ document.getElementById("payment-continue-btn").addEventListener("click", async 
 
   const itemLine = paymentDocTitle
     ? `Item: ${paymentDocTitle}${paymentDocId ? " (ID: " + paymentDocId + ")" : ""}${paymentDocCategory ? "\nCategory: " + paymentDocCategory : ""}`
-    : "Item: Monthly subscription";
+    : `Category: ${paymentDocCategory || "—"}`;
 
   const message =
     `Hello, I would like to unlock access on Vidyalay Coaching Centre Study Portal.\n\n` +
+    `Plan: ${planLabel}\n` +
     `${itemLine}\n` +
-    `Amount paid: Rs. ${paymentMonthlyFee}\n` +
+    `Amount paid: Rs. ${amount}\n` +
     `My email: ${email}\n\n` +
     `I have made the payment. Attaching my payment screenshot below.`;
 
@@ -828,6 +931,7 @@ loadBranding();
 loadCategories();
 loadStats();
 loadRecent();
+loadAnnouncement();
 applyThemeColor(localStorage.getItem("vidyalay_theme_color") || THEME_COLORS[0].hex, false);
 applyDarkMode(localStorage.getItem("vidyalay_dark_mode") === "1", false);
   
